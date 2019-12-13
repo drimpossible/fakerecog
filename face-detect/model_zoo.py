@@ -2,7 +2,7 @@
 """
 This code file mainly comes from https://github.com/dmlc/gluon-cv/blob/master/gluoncv/model_zoo/model_zoo.py
 """
-from face_detection import *
+from face_detection import retinaface_r50_v1, retinaface_mnet025_v1, retinaface_mnet025_v2
 
 __all__ = ['get_model', 'get_model_list']
 

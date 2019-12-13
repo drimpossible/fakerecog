@@ -36,7 +36,9 @@ class FaceAnalysis:
             bindex = bindex[0:max_num]
             bboxes = bboxes[bindex, :]
             landmarks = landmarks[bindex, :]
+        
         ret = []
+        
         for i in range(bboxes.shape[0]):
             bbox = bboxes[i, 0:4]
             det_score = bboxes[i,4]
@@ -46,3 +48,17 @@ class FaceAnalysis:
             ret.append(face)
         return ret
 
+class ArrayTracker:
+    def __init__(self, yname, xname):
+        self.yname = yname
+        self.xname = xname
+        self.arr = []
+        self.epoch = []
+
+    def add(self, inp, epoch):
+        self.arr.append(inp)
+        self.epoch.append(epoch)
+
+
+        
+    
