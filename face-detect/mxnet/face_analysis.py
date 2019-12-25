@@ -16,7 +16,7 @@ Face = collections.namedtuple('Face', [
 Face.__new__.__defaults__ = (None,) * len(Face._fields)
 
 class FaceAnalysis:
-    def __init__(self, det_name='retinaface_r50_v1'):
+    def __init__(self, det_name='retinaface_mnet025_v2'):
         assert det_name is not None
         self.det_model = model_zoo.get_model(det_name)
 
@@ -48,16 +48,7 @@ class FaceAnalysis:
             ret.append(face)
         return ret
 
-class ArrayTracker:
-    def __init__(self, yname, xname):
-        self.yname = yname
-        self.xname = xname
-        self.arr = []
-        self.epoch = []
 
-    def add(self, inp, epoch):
-        self.arr.append(inp)
-        self.epoch.append(epoch)
 
 
         

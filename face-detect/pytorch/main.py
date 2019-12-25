@@ -1,12 +1,23 @@
 import json
 import pickle
-from face_analysis import FaceAnalysis, ArrayTracker
+#from face_analysis import FaceAnalysis
 from video_reader import VideoReader
 import time
 
+class ArrayTracker:
+    def __init__(self, yname, xname):
+        self.yname = yname
+        self.xname = xname
+        self.arr = []
+        self.epoch = []
+
+    def add(self, inp, epoch):
+        self.arr.append(inp)
+        self.epoch.append(epoch)
+
 if __name__ == '__main__':
-    data_dir = '../data/'
-    num_id=1
+    data_dir = '../../data/'
+    num_id=0
     total=2
         
     model = FaceAnalysis()
@@ -17,9 +28,9 @@ if __name__ == '__main__':
     
     videof = list(data.keys())
     lenvid = len(videof)
-    curr_idx = 1
+    curr_idx = 466
 
-    for name in videof:
+    for name in videof[465:]:
         if curr_idx % total == num_id:
             name = name[:-4]
             savepath = data_dir+'dfdc_small/'+name+'.pkl'
@@ -40,3 +51,4 @@ if __name__ == '__main__':
             print("Completed saving to: "+savepath)
         
         curr_idx += 1
+
