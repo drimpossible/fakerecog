@@ -1,6 +1,7 @@
 data/
 libs/
-
+src/.vscode/
+src/face-detect/.vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
