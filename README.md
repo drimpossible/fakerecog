@@ -1,6 +1,6 @@
 # fakerecog
 
-Code for my submission to the deepfake detection challenge
+Code for my submission to the deepfake detection challenge. Currently, this is not very helpful. Please overlook this. To be updated once we have a first cut code ready.
 
 # Creating dataset files
 
