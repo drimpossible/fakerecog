@@ -21,9 +21,9 @@ class FaceDetector():
         self.device = device
 
         # Set network
-        self.cfg = opts.cfg_mnet if opt.model == "Mobile0.25" else opts.cfg_res50
+        self.cfg = opts.cfg_mnet if opt.model == "Mobilenet0.25" else opts.cfg_res50
         self.net = load_model(self.cfg, opt.lib_dir+opt.model+'.pth', device)
-        self.logger.info(self.net)
+        #self.logger.info(self.net)
 
     def detect(self, video_path, height, width):
         data_time, net_time, postproc_time = AverageMeter(), AverageMeter(), AverageMeter()
@@ -51,24 +51,20 @@ class FaceDetector():
                 data_time.update(datat - start)
                 # Batched forward pass
                 loc, conf, landms = self.net(data)
-                fwdt = time.time()
-                net_time.update(fwdt - datat)
                 boxes = decode_boxes(loc, priors, self.cfg['variance'])
-                landms = decode_landms(landms, priors, self.cfg['variance'])
                 boxes = boxes * box_scale / self.opt.resize
+                landms = decode_landms(landms, priors, self.cfg['variance'])
                 landms = landms * landms_scale / self.opt.resize
-                scores = conf[:, :, 1]
-                
-                # Parallelized bbox reduction
-                mask = torch.gt(scores, self.opt.confidence_threshold)
-                # TODO: Next line taking way too much time. Optimize
-                #mask, boxes, landms, scores = mask.cpu(), boxes.cpu(), landms.cpu(), scores.cpu() 
-                #indices = torch.nonzero(mask, as_tuple=True)
-                #landms, boxes, scores = landms[mask], boxes[mask], scores[mask]
-                landms, boxes, scores = torch.masked_select(landms,mask.unsqueeze(2)).view(-1,10), torch.masked_select(boxes,mask.unsqueeze(2)).view(-1,4), torch.masked_select(scores, mask)
 
+                scores = conf[:, :, 1]
+                mask = torch.gt(scores, self.opt.confidence_threshold)
+                # Alternative methods in postprocessing
+                #mask, boxes, landms, scores = mask.cpu(), boxes.cpu(), landms.cpu(), scores.cpu() 
+                #landms, boxes, scores = landms[mask], boxes[mask], scores[mask]
+                classes = torch.arange(mask.size(0), device=mask.device).repeat_interleave(mask.sum(dim=1))
+                scores, boxes, landms = torch.masked_select(scores, mask), torch.masked_select(boxes,mask.unsqueeze(2)).view(-1,4), torch.masked_select(landms,mask.unsqueeze(2)).view(-1,10)
+                
                 # Parallel GPU-based NMS
-                classes = torch.arange(data.size(0), device=boxes.device).repeat_interleave(mask.sum(dim=1))
                 keep = batched_nms(boxes, scores, classes, self.opt.nms_threshold)
                 landms, boxes, scores, classes = landms[keep, :], boxes[keep, :], scores[keep], classes[keep]
                 classes = classes*(i+1)
@@ -79,13 +75,11 @@ class FaceDetector():
                 frame_ids = classes if i==0 else torch.cat((frame_ids, classes), dim=0)
 
                 start = time.time()
-                postproc_time.update(start- fwdt)
+                postproc_time.update(start- datat)
                 total = (start-first)*1.0   
 
-        self.logger.info('Total time:{0:.4f}\t Data:{dt.sum:.4f}\t Net:{nt.sum:.4f}\t PostP:{pt.sum:.4f}\t'.format(total, dt=data_time, nt=net_time, pt=postproc_time))
+        #self.logger.info('Total time:{0:.4f}\t Data:{dt.sum:.4f}\t Net:{nt.sum:.4f}\t PostP:{pt.sum:.4f}\t'.format(total, dt=data_time, nt=net_time, pt=postproc_time))
         return [state, bboxes.cpu(), landmarks.cpu(), confidence.cpu(), frame_ids.cpu()]
-
-    
 
     
 

@@ -189,10 +189,10 @@ class RetinaFace(nn.Module):
         super(RetinaFace,self).__init__()
         self.phase = phase
         backbone = None
-        if cfg['name'] == 'mobilenet0.25':
+        if cfg['name'] == 'Mobilenet0.25':
             backbone = MobileNetV1()
             if cfg['pretrain']:
-                checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
+                checkpoint = torch.load("/media/anarchicorganizer/Emilia/fakerecog/libs/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
                 from collections import OrderedDict
                 new_state_dict = OrderedDict()
                 for k, v in checkpoint['state_dict'].items():
