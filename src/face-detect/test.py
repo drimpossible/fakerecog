@@ -1,15 +1,23 @@
 from utils import profile_onthefly
 import torch
 from torchvision.ops.boxes import batched_nms
+from utils import check_ffmpeg_exists, get_all_video_paths, burst_video_into_frames
 
-def test_func(batch_size, num_points):
-    scores, boxes, landms = torch.rand((batch_size,num_points)).cuda(), torch.rand((batch_size,num_points, 4)).cuda(), torch.rand((batch_size,num_points, 10)).cuda()
-    mask = torch.gt(scores, 0.98)
-    classes = torch.arange(scores.size(0), device=scores.device).repeat_interleave(mask.sum(dim=1))
-    landms, boxes, scores = torch.masked_select(landms,mask.unsqueeze(2)).view(-1,10), torch.masked_select(boxes,mask.unsqueeze(2)).view(-1,4), torch.masked_select(scores, mask)
-    # classes = torch.arange(scores.size(0), device=boxes.device).repeat_interleave(mask.sum(dim=1))
-    # keep = batched_nms(boxes, scores, classes, 0.4)
+
+def test_bursting():
+    # Test function for benchmarking bursting speed.
+    assert(check_ffmpeg_exists()), "FFMPEG not found"
+    datadir = '/media/anarchicorganizer/Emilia/fakerecog/data/dfdc_small/'
+    burst_dir = '/media/anarchicorganizer/Emilia/fakerecog/data/bursted_dfdc_small/'
+    os.makedirs(burst_dir, exist_ok=True)
+    vidformat = 'mp4'
+    video_paths = get_all_video_paths(datadir)
+
+    for vid_path in video_paths:
+        print(vid_path)
+        burst_video_into_frames(vid_path=vid_path, burst_dir=burst_dir)
 
 if __name__ == '__main__':
+    # TODO: Write tests for each individual function to check whenever needed.
     #test_func(batch_size=8, num_points=100000)
-    profile_onthefly(test_func)(batch_size=16, num_points=1000000)
+    #profile_onthefly(test_func)(batch_size=16, num_points=1000000)

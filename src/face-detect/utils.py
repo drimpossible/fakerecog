@@ -1,4 +1,4 @@
-import random, os, torch, cv2
+import os, sh, random, torch, cv2
 from itertools import product as product
 import numpy as np
 from math import ceil
@@ -88,6 +88,29 @@ def get_metadata(video_path):
     encoding = decode_fourcc(fourcc)
     return height, width, fps, frame_cnt, encoding
 
+
+def burst_video_into_frames(vid_path, burst_dir, format='mp4'):
+    """
+    - To burst frames in a directory in shared memory.
+    - Returns path to directory containing frames for the specific video
+    """
+    vid_name = vid_path.split('/')[-1]
+    out_folder = vid_name[:-(len(format)+1)]
+    os.makedirs(burst_dir+'/'+out_folder, exist_ok=True)
+    target_mask = os.path.join(burst_dir+'/'+out_folder, '%04d.jpg')
+    try:
+        ffmpeg_args = [
+            '-i', vid_path,
+            '-q:v', str(1),
+            '-f', 'image2',
+            target_mask,
+        ]
+        sh.ffmpeg(*ffmpeg_args)
+    except Exception as e:
+        print(repr(e))
+    return burst_dir+'/'+out_folder+'/'
+
+
 class ArrayTracker:
     def __init__(self, yname, xname):
         self.yname = yname
@@ -146,3 +169,46 @@ def profile_onthefly(func):
             print(text)
             return result
         return _wrapper
+
+
+def check_ffmpeg_exists():
+    return os.system('ffmpeg -version > /dev/null') == 0
+
+
+def pil_loader(path):
+    from PIL import Image
+    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
+    with open(path, 'rb') as f:
+        img = Image.open(f)
+        return img.convert('RGB')
+
+
+def accimage_loader(path):
+    import accimage
+    try:
+        return accimage.Image(path)
+    except IOError:
+        # Potentially a decoding problem, fall back to PIL.Image
+        return pil_loader(path)
+
+
+def default_loader(path):
+    from torchvision import get_image_backend
+    if get_image_backend() == 'accimage':
+        return accimage_loader(path)
+    else:
+        return pil_loader(path)
+
+
+def get_all_image_paths(root_dir):
+    image_paths = []
+    for (dirpath, _, filenames) in os.walk(root_dir, followlinks=True):
+        image_paths += [dirpath+'/'+f for f in filenames if (f.endswith('.jpg') or f.endswith('.png') or f.endswith('.jpeg'))]
+    return image_paths
+
+
+def get_all_video_paths(root_dir):
+    image_paths = []
+    for (dirpath, _, filenames) in os.walk(root_dir, followlinks=True):
+        image_paths += [dirpath+'/'+f for f in filenames if (f.endswith('.mp4'))]
+    return image_paths
