@@ -89,7 +89,7 @@ def get_metadata(video_path):
     return height, width, fps, frame_cnt, encoding
 
 
-def burst_video_into_frames(vid_path, burst_dir, format='mp4'):
+def burst_video_into_frames(vid_path, burst_dir, frame_rate, format='mp4'):
     """
     - To burst frames in a directory in shared memory.
     - Returns path to directory containing frames for the specific video
@@ -103,6 +103,7 @@ def burst_video_into_frames(vid_path, burst_dir, format='mp4'):
             '-i', vid_path,
             '-q:v', str(1),
             '-f', 'image2',
+            '-r', frame_rate,
             target_mask,
         ]
         sh.ffmpeg(*ffmpeg_args)
@@ -212,3 +213,18 @@ def get_all_video_paths(root_dir):
     for (dirpath, _, filenames) in os.walk(root_dir, followlinks=True):
         image_paths += [dirpath+'/'+f for f in filenames if (f.endswith('.mp4'))]
     return image_paths
+
+def get_enlarged_crop(bbox, image, scale=1.3):
+    x1, y1, x2, y2 = bbox
+    height, width = image.height, image.width
+    size_bb = int(max(x2 - x1, y2 - y1) * scale)
+
+    center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+
+    # Check for out of bounds, x-y top left corner
+    x1 = max(int(center_x - size_bb // 2), 0)
+    y1 = max(int(center_y - size_bb // 2), 0)
+    # Check for too big bb size for given x, y
+    size_bb = min(width - x1, size_bb)
+    size_bb = min(height - y1, size_bb)
+    return x1, y1, x1+size_bb, y1+size_bb

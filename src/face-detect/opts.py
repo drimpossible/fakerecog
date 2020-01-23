@@ -15,6 +15,8 @@ def parse_args():
     parser.add_argument('--confidence_threshold', default=0.6, type=float, help='confidence_threshold')
     parser.add_argument('--nms_threshold', default=0.4, type=float, help='nms_threshold')
     parser.add_argument('--current_idx', type=int, default=0, help='Start from the beginning')
+    parser.add_argument('--frame_rate', type=int, default=12, help='Frame rate to burst videos')
+    parser.add_argument('--paths_to_process', type=str, help='Choose json file with video paths to process')
     # Restart arguments
     
 
