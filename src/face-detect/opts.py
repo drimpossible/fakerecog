@@ -17,6 +17,8 @@ def parse_args():
     parser.add_argument('--current_idx', type=int, default=0, help='Start from the beginning')
     parser.add_argument('--max_track_age', type=int, default=20, help='Start from the beginning')
     parser.add_argument('--min_track_hits', type=int, default=3, help='Start from the beginning')
+    parser.add_argument('--frame_rate', type=int, default=12, help='Frame rate to burst videos')
+    parser.add_argument('--paths_to_process', type=str, help='Choose json file with video paths to process') # Merge this with data_dir + dataset?
     # Restart arguments
     
 

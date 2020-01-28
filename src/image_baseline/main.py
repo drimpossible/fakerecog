@@ -4,9 +4,11 @@ import random
 import shutil
 import time
 import warnings
+from collections import OrderedDict
 
 import datasets
 from network.models import model_selection
+from callbacks import Logger
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -25,11 +27,11 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='xception',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet18)')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='xception')
+                    # choices=model_names,
+                    # help='model architecture: ' +
+                    #     ' | '.join(model_names) +
+                    #     ' (default: resnet18)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=3, type=int, metavar='N',
@@ -48,14 +50,16 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
+parser.add_argument('-p', '--print-freq', default=200, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
+parser.add_argument('--pretrained', type=str, dest='pretrained',
                     help='use pre-trained model')
+parser.add_argument('--logdir', type=str, default='logdir',
+                    help='folder to store log files')
 parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
 parser.add_argument('--rank', default=-1, type=int,
@@ -73,6 +77,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
+parser.add_argument('--log_freq', '-l', default=10, type=int,
+                    metavar='N', help='frequency to write in tensorboard (default: 10)')
 
 best_acc1 = 0
 
@@ -160,9 +166,11 @@ def main_worker(gpu, ngpus_per_node, args):
             model.cuda()
         else:
             model = torch.nn.DataParallel(model).cuda()
-# TODO
+
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    weights = [1.0, 1.0]
+    class_weights = torch.FloatTensor(weights).cuda(args.gpu)
+    criterion = nn.CrossEntropyLoss(weight=class_weights).cuda(args.gpu)
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
 
@@ -192,6 +200,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     train_dataset = datasets.FFImageDataset(data_path=datasets.DATA_PATH)
+    print('Number of folders in train set {}'.format(len(train_dataset)))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -202,14 +211,22 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
+    val_dataset = datasets.FFImageValidation(data_path=datasets.DATA_PATH, split='val')
+    print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
-        datasets.FFImageDataset(data_path=datasets.DATA_PATH, split='val'),
-        batch_size=args.batch_size, shuffle=False,
+        val_dataset,
+        batch_size=100, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
     if args.evaluate:
         validate(val_loader, model, criterion, args)
         return
+
+    # training, start a logger
+    tb_logdir = os.path.join(args.logdir, args.arch.lower())
+    if not (os.path.exists(tb_logdir)):
+        os.makedirs(tb_logdir)
+    tb_logger = Logger(tb_logdir)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -217,10 +234,10 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train(train_loader, model, criterion, optimizer, epoch, args, tb_logger)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1 = validate(val_loader, model, criterion, args, epoch=epoch, tb_logger=tb_logger)
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -237,7 +254,7 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -280,8 +297,20 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         if i % args.print_freq == 0:
             progress.display(i)
 
+        # log training data into tensorboard
+        if tb_logger is not None and i % args.log_freq == 0:
+            logs = OrderedDict()
+            logs['Train_IterLoss'] = losses.val
+            logs['Train_Acc@1'] = top1.val
+            # how many iterations we have trained
+            iter_count = epoch * len(train_loader) + i
+            for key, value in logs.items():
+                tb_logger.log_scalar(value, key, iter_count)
 
-def validate(val_loader, model, criterion, args):
+            tb_logger.flush()
+
+
+def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
@@ -305,7 +334,9 @@ def validate(val_loader, model, criterion, args):
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            acc1, _ = accuracy(output, target, topk=(1,))
+            acc1 = accuracy_max_vote(output, target, topk=(1,))
+            # import pdb
+            # pdb.set_trace()
             losses.update(loss.item(), images.size(0))
             top1.update(acc1[0], images.size(0))
 
@@ -318,13 +349,23 @@ def validate(val_loader, model, criterion, args):
 
         print(' * Acc@1 {top1.avg:.3f} '.format(top1=top1))
 
+    if epoch is not None and tb_logger is not None:
+        logs = OrderedDict()
+        logs['Val_EpochLoss'] = losses.avg
+        logs['Val_EpochAcc@1'] = top1.avg
+        # how many iterations we have trained
+        for key, value in logs.items():
+            tb_logger.log_scalar(value, key, epoch + 1)
+
+        tb_logger.flush()
+
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint_full.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, 'model_best_full.pth.tar')
 
 
 class AverageMeter(object):
@@ -390,6 +431,20 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
+
+def accuracy_max_vote(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+        if len(correct[correct == True]) >= 50:
+            return [torch.tensor(100.)]
+        else:
+            return [torch.tensor(0.)]
 
 
 if __name__ == '__main__':
