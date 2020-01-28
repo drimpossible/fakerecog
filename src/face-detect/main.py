@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import json, pickle, torch, os, time, shutil
 import opts
 from detectors.detect import RetinaFaceDetector
@@ -6,16 +5,6 @@ from dataio.crop_and_save import visualize_frames
 from trackers.track import get_tracks
 from utils import seed_everything, profile_onthefly, burst_video_into_frames, get_metadata
 import logger
-=======
-import json, pickle, torch, os, time
-import opts, logger
-from detect import FaceDetector
-from utils import seed_everything, profile_onthefly, burst_video_into_frames, get_metadata, get_enlarged_crop
-from tqdm import tqdm
-import shutil
-from PIL import Image
-
->>>>>>> f7bdc22f0525a5dea8e7d1a1f76b5fde030e53e2
 
 def run_pipeline(opt):
     seed_everything(seed=opt.seed)
