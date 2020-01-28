@@ -17,6 +17,9 @@ def test_bursting():
         print(vid_path)
         burst_video_into_frames(vid_path=vid_path, burst_dir=burst_dir)
 
+
+def test_check_bursting()
+
 if __name__ == '__main__':
     # TODO: Write tests for each individual function to check whenever needed.
     #test_func(batch_size=8, num_points=100000)
