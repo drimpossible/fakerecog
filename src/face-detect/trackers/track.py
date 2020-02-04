@@ -28,7 +28,7 @@ def get_tracks(opt, bboxes, landmarks, confidence, frames):
             smooth_bboxes[mapid] = smdet_with_tracks[i,:4].float()
     
     uniq_tracks, counts = torch.unique(trackids, return_counts=True)
-    
+
     # Warning: Hacky work ahead
     dumpster = (uniq_tracks==-1)
     for i in range(uniq_tracks.shape[0]):
@@ -75,9 +75,8 @@ def get_tracks(opt, bboxes, landmarks, confidence, frames):
                 counts[i] += counts[arrid_before]
                 uniq_tracks[arrid_before] = -1
                 counts[arrid_before] = 0
-
     uniq_tracks, counts = torch.unique(trackids, return_counts=True)
-
+    
     tracked_detections = []
     for track in uniq_tracks:
         if track !=-1:

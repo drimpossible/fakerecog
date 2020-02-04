@@ -1,16 +1,6 @@
-import os
-import pickle
-import glob
-import json
 from PIL import Image
-from tqdm import tqdm
-import shutil
-import cv2
-# PATH = '/media/joanna/Work/faceforensicsplusplus/'
-
-# with open(PATH + 'dataset.json', 'r') as f:
-#     meta = json.load(f)
-
+import cv2, torch
+from multiprocessing import Process
 
 def visualize_frames(paths, bboxes, confidence, landmarks, frame_ids):
     for idx in range(len(frame_ids)):
@@ -28,44 +18,26 @@ def visualize_frames(paths, bboxes, confidence, landmarks, frame_ids):
         #print(paths[frame_ids[idx]][:-4]+'_detections_idx'+str(idx)+'.jpg')
         cv2.imwrite(paths[frame_ids[idx]][:-4]+'_detections_idx'+str(idx)+'.jpg', img_raw)
 
-def get_enlarged_crop(bbox, image, scale=1.3):
-    x1, y1, x2, y2 = bbox
-    height, width = image.height, image.width
-    size_bb = int(max(x2 - x1, y2 - y1) * scale)
+def fix_and_crop_bbox_size(out_dir, bboxes, frame_ids, paths, scale, im_w, im_h, trackid, workers):
+    w = (bboxes[:,2] - bboxes[:,0]).abs()
+    h = (bboxes[:,3] - bboxes[:,1]).abs()
+    cropw, croph = w.mean()*scale, h.mean()*scale
+    minx, miny, maxx, maxy = torch.Tensor([0]).long(), torch.Tensor([0]).long(), torch.Tensor([im_w]).long(), torch.Tensor([im_h]).long()
 
-    center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+    center_x, center_y = (bboxes[:,2] + bboxes[:,0])/2, (bboxes[:,3] + bboxes[:,1])/2
+    bbox_out = bboxes.clone()
+    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = center_x-cropw/2, center_y-croph/2, center_x+cropw/2, center_y+croph/2
+    bbox_out = bbox_out.long()
+    bbox_out[:,0] = torch.where(bbox_out[:,0] > 0, bbox_out[:,0], minx)
+    bbox_out[:,1] = torch.where(bbox_out[:,1] > 0, bbox_out[:,1], miny)
+    bbox_out[:,2] = torch.where(bbox_out[:,2] > 0, bbox_out[:,2], maxx)
+    bbox_out[:,3] = torch.where(bbox_out[:,3] > 0, bbox_out[:,3], maxy)
 
-    # Check for out of bounds, x-y top left corner
-    x1 = max(int(center_x - size_bb // 2), 0)
-    y1 = max(int(center_y - size_bb // 2), 0)
-    # Check for too big bb size for given x, y
-    size_bb = min(width - x1, size_bb)
-    size_bb = min(height - y1, size_bb)
-    return x1, y1, x1+size_bb, y1+size_bb
+    for i in range(bbox_out.size(0)):
+        Process(target=crop_im, args=(out_dir, paths[frame_ids[i]], trackid, bbox_out[i,:])).start()
 
-
-# for folder in tqdm(meta):
-#     frames = glob.glob(folder + '/*.png')
-#     detections = pickle.load(open(folder + '/detections.pkl', 'rb'))
-
-#     state, bboxes, landmarks, confidence, frame_ids, paths = detections
-
-#     sorted_bboxes = [x for _, x in sorted(zip(frame_ids, bboxes.numpy()), key=lambda pair: pair[0])]
-#     sorted_confidence = [x for _, x in sorted(zip(frame_ids, confidence.numpy()), key=lambda pair: pair[0])]
-#     sorted_frames_ids = sorted(frame_ids)
-
-#     for bbox, conf, ids in zip(sorted_bboxes, sorted_confidence, sorted_frames_ids):
-#         im_path = folder + '/%04d' % ids + '.png'
-#         new_path = im_path.replace('Work', 'Data')
-#         if not os.path.exists(new_path):
-#             image = Image.open(folder + '/%04d' % ids + '.png')
-#             bbox = get_enlarged_crop(bbox, image)
-#             crop = image.crop(bbox)
-#             if not os.path.exists(folder.replace('Work', 'Data')):
-#                 os.makedirs(folder.replace('Work', 'Data'))
-#             crop.save(new_path)
-#     shutil.rmtree(folder)
-
-
-
-
+def crop_im(out_dir, frame_path, trackid, bbox):
+    img = Image.open(frame_path)
+    crop = img.crop(bbox.numpy()) 
+    frameno = 'track'+str(trackid)+'_'+frame_path.split('/')[-1]
+    crop.save(out_dir + frameno)
