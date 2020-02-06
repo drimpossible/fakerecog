@@ -79,6 +79,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'multi node data parallel training')
 parser.add_argument('--log_freq', '-l', default=10, type=int,
                     metavar='N', help='frequency to write in tensorboard (default: 10)')
+parser.add_argument('--exp', type=str)
 
 best_acc1 = 0
 
@@ -223,7 +224,7 @@ def main_worker(gpu, ngpus_per_node, args):
         return
 
     # training, start a logger
-    tb_logdir = os.path.join(args.logdir, args.arch.lower())
+    tb_logdir = os.path.join(args.logdir, args.exp)
     if not (os.path.exists(tb_logdir)):
         os.makedirs(tb_logdir)
     tb_logger = Logger(tb_logdir)
@@ -251,7 +252,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best)
+            }, is_best, filename=args.exp)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None):
@@ -362,7 +363,8 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint_full.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint'):
+    filename += '.pth.tar'
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best_full.pth.tar')
