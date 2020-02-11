@@ -65,3 +65,11 @@ class Logger:
 
     def flush(self):
        pass
+
+
+def creat_dataset(meta_file, vid_folder, out_data_path):
+    meta = json.load(open(meta_file, 'r'))
+    frames_paths = glob.glob(vid_folder)
+    data = [{'frames_path': i, 'label': meta[i.split('/')[-2] + '.mp4']['label'], 'vid_id': i.split('/')[-2]}
+            for i in frames_paths]
+    json.dump(data, open(out_data_path, 'w'))
