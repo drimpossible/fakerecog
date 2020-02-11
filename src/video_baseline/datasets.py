@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 import torch
 import gtransforms
+import glob
 import json
 
 '''
@@ -28,7 +29,7 @@ class VideoFolder(torch.utils.data.Dataset):
     def __init__(self,
                  file_input,
                  frames_duration,
-                 sample_rate=12,
+                 sample_rate=1,
                  is_val=False,
                  k_split=2,
                  sample_split=1,
@@ -105,7 +106,7 @@ class VideoFolder(torch.utils.data.Dataset):
         self.frame_cnts = frame_cnts
 
     # todo: might consider to replace it to opencv, should be much faster
-    def load_frame(self, vid_name, frame_idx):
+    def load_frame(self, frame_path):
         """
         Load frame
         :param vid_name: video name
@@ -114,8 +115,7 @@ class VideoFolder(torch.utils.data.Dataset):
         """
         # return Image.open(
         #     join(os.path.dirname(self.data_root), 'frames', vid_name, '%04d.jpg' % (frame_idx + 1))).convert('RGB')
-        return Image.open(
-            join(vid_name, '%04d.jpg' % (frame_idx + 1))).convert('RGB')
+        return Image.open(frame_path).convert('RGB')
 
 
     def sample_single(self, index):
@@ -125,6 +125,7 @@ class VideoFolder(torch.utils.data.Dataset):
         :return:
         """
         frame_folder = self.folder_paths[index]
+        frame_paths = sorted(glob.glob(frame_folder + '/track1*.jpg'))
         n_frame = self.frame_cnts[index] - 1
         d = self.in_duration * self.sample_rate
         if n_frame > d:
@@ -151,7 +152,7 @@ class VideoFolder(torch.utils.data.Dataset):
         frames = []
 
         for fidx in frame_list:
-            frames.append(self.load_frame(frame_folder, fidx))
+            frames.append(self.load_frame(frame_paths[fidx]))
         return frames
 
 
