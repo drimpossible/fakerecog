@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument('--confidence_threshold', default=0.75, type=float, help='confidence_threshold')
     parser.add_argument('--nms_threshold', default=0.4, type=float, help='nms_threshold')
     parser.add_argument('--current_idx', type=int, default=0, help='Start from the beginning')
-    parser.add_argument('--total_gpus', type=int, default=0, help='Start from the beginning')
+    parser.add_argument('--total_processes', type=int, default=0, help='Start from the beginning')
     parser.add_argument('--max_track_age', type=int, default=20, help='Start from the beginning')
     parser.add_argument('--min_track_hits', type=int, default=3, help='Start from the beginning')
     parser.add_argument('--frame_rate', type=int, default=12, help='Frame rate to burst videos')
