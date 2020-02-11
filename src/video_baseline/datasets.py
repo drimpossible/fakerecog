@@ -76,6 +76,7 @@ class VideoFolder(torch.utils.data.Dataset):
             # gtransforms.LoopPad(self.in_duration),
         ]
         self.transforms = Compose(self.transforms)
+        self.prepare_data()
 
     def prepare_data(self):
         """
