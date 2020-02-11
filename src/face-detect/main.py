@@ -27,7 +27,7 @@ def run_pipeline(opt):
     burst_path = '/dev/shm/face_detector_exp_'+str(opt.worker_id)+'/'
     shutil.rmtree(burst_path, ignore_errors=True)
 
-    for idx in range(current_idx, lenvid, opt.total_gpus):
+    for idx in range(current_idx, lenvid, opt.total_processes):
         console_logger.debug('Starting video: '+str(idx)+'/'+str(lenvid))
         try:
             video_path = videof[idx]
