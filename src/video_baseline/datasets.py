@@ -77,6 +77,7 @@ class VideoFolder(torch.utils.data.Dataset):
         ]
         self.transforms = Compose(self.transforms)
         self.prepare_data()
+        self.int_label = lambda x: 1 if x == 'FAKE' else 0
 
     def prepare_data(self):
         """
@@ -153,8 +154,9 @@ class VideoFolder(torch.utils.data.Dataset):
             frames.append(self.load_frame(frame_folder, fidx))
         return frames
 
+
     def __getitem__(self, index):
-        label = self.labels(index)
+        label = self.int_label(self.labels[index])
         frames = self.sample_single(index)
         frames = self.transforms(frames)
         frames = frames.permute(1, 0, 2, 3)
