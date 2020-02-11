@@ -64,11 +64,6 @@ class VideoFolder(torch.utils.data.Dataset):
                 # gtransforms.GroupRandomCrop((224, 224)),
                 # gtransforms.GroupRandomHorizontalFlip()
             ]
-        elif self.multi_crop_test:
-            self.transforms = [
-                gtransforms.GroupResize((256, 256)),
-                gtransforms.GroupRandomCrop((256, 256)),
-            ]
         else:
             self.transforms = [
                 gtransforms.GroupResize((224, 224))
@@ -94,7 +89,7 @@ class VideoFolder(torch.utils.data.Dataset):
         for listdata in self.json_data:
             try:
                 vid_names.append(listdata['vid_id'])
-                labels.append(['label'])
+                labels.append(listdata['label'])
                 frames_path = listdata['frames_path']
                 folder_paths.append(frames_path)
                 frames = os.listdir(frames_path)

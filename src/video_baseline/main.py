@@ -207,7 +207,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # Data loading code
     train_dataset = datasets.VideoFolder(file_input=args.metadata,
                                          frames_duration=args.frames_duration,
-                                         sample_rate=args.sample_rate)
+                                         sample_rate=1)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
     if args.distributed:
