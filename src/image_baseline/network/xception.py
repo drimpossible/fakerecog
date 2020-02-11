@@ -241,9 +241,10 @@ def xception(num_classes=1000, pretrained='imagenet'):
         # TODO: ugly
         model.last_linear = model.fc
         del model.fc
-    elif pretrained:
+    else:
         model = Xception(num_classes=num_classes)
         model.last_linear = model.fc
+        print('Loading {}'.format(pretrained))
         del model.fc
         pretrained = torch.load(pretrained)
         state_dict = remove_module_from_checkpoint_state_dict(pretrained['state_dict'])
@@ -254,7 +255,7 @@ def xception(num_classes=1000, pretrained='imagenet'):
         model.input_range = settings['input_range']
         model.mean = settings['mean']
         model.std = settings['std']
-    else:
-        model.last_linear = model.fc
-        del model.fc
+    # else:
+    #     model.last_linear = model.fc
+    #     del model.fc
     return model

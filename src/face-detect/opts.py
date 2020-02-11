@@ -7,7 +7,7 @@ def parse_args():
     parser.add_argument('--lib_dir', default='/media/anarchicorganizer/Emilia/fakerecog/libs/', type=str, help='Directory where all pretrained models and libraries are stored. Limit: 1GB')
     parser.add_argument('--log_dir', default='/media/anarchicorganizer/Emilia/fakerecog/logs/', type=str, help='Directory where all datasets are stored')
     parser.add_argument('--exp_name', type=str, default='test', help='Experiment Name')
-    parser.add_argument('--dataset', type=str, default='dfdc_preview', choices=['dfdc_preview','dfdc_full','FF++40','FF++24'], help='Experiment Name')
+    parser.add_argument('--dataset', type=str, default='dfdc_preview', choices=['dfdc_preview','dfdc_full','FF++40','FF++24', 'dfdc'], help='Experiment Name')
     parser.add_argument('--loader_type', type=str, default='burst', choices=['burst','video'], help='Type of dataloader')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size to be used in training')
     parser.add_argument('--model', default='Mobilenet0.25', type=str, choices=['Resnet50','Mobilenet0.25'], help='Trained state_dict file path to open')
