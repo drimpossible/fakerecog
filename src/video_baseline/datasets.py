@@ -94,8 +94,8 @@ class VideoFolder(torch.utils.data.Dataset):
         for listdata in self.json_data:
             try:
                 if listdata['split'] == self.split:
-                    frames = os.listdir(frames_path)
-                    if frame_cnts > 12:
+                    frames = os.listdir(listdata['frames_path'])
+                    if len(frame_cnts) > 12:
                         frame_cnts.append(int(len(frames)))
                         vid_names.append(listdata['vid_id'])
                         labels.append(listdata['label'])
@@ -130,7 +130,7 @@ class VideoFolder(torch.utils.data.Dataset):
         """
         frame_folder = self.folder_paths[index]
         frame_paths = sorted(glob.glob(frame_folder + '/track1*.jpg'))
-        n_frame = self.frame_cnts[index] - 1
+        n_frame = len(frame_paths) - 1
         d = self.in_duration * self.sample_rate
         if n_frame > d:
             if not self.is_val:
