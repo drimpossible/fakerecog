@@ -94,12 +94,13 @@ class VideoFolder(torch.utils.data.Dataset):
         for listdata in self.json_data:
             try:
                 if listdata['split'] == self.split:
-                    vid_names.append(listdata['vid_id'])
-                    labels.append(listdata['label'])
-                    frames_path = listdata['frames_path']
-                    folder_paths.append(frames_path)
                     frames = os.listdir(frames_path)
-                    frame_cnts.append(int(len(frames)))
+                    if frame_cnts > 12:
+                        frame_cnts.append(int(len(frames)))
+                        vid_names.append(listdata['vid_id'])
+                        labels.append(listdata['label'])
+                        frames_path = listdata['frames_path']
+                        folder_paths.append(frames_path)
             except Exception as e:
                 print(str(e))
 
@@ -168,7 +169,7 @@ class VideoFolder(torch.utils.data.Dataset):
 
     def __len__(self):
         # return len(self.labels)
-        return len(self.json_data)
+        return len(self.vid_names)
 
     def unnormalize(self, img, divisor=255):
         """
