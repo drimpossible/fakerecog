@@ -33,6 +33,7 @@ class VideoFolder(torch.utils.data.Dataset):
                  is_val=False,
                  k_split=2,
                  sample_split=1,
+                 split='train',
                  ):
         """
         :param root: data root path
@@ -45,6 +46,7 @@ class VideoFolder(torch.utils.data.Dataset):
         :param k_split: number of splits of clips from the video
         :param sample_split: how many frames sub-sample from each clip
         """
+        self.split = split
         self.in_duration = frames_duration
         self.sample_rate = sample_rate
         self.is_val = is_val
@@ -91,12 +93,13 @@ class VideoFolder(torch.utils.data.Dataset):
         folder_paths = []
         for listdata in self.json_data:
             try:
-                vid_names.append(listdata['vid_id'])
-                labels.append(listdata['label'])
-                frames_path = listdata['frames_path']
-                folder_paths.append(frames_path)
-                frames = os.listdir(frames_path)
-                frame_cnts.append(int(len(frames)))
+                if listdata['split'] == self.split:
+                    vid_names.append(listdata['vid_id'])
+                    labels.append(listdata['label'])
+                    frames_path = listdata['frames_path']
+                    folder_paths.append(frames_path)
+                    frames = os.listdir(frames_path)
+                    frame_cnts.append(int(len(frames)))
             except Exception as e:
                 print(str(e))
 
@@ -152,7 +155,7 @@ class VideoFolder(torch.utils.data.Dataset):
         frames = []
 
         for fidx in frame_list:
-            frames.append(self.load_frame(frame_paths[fidx]))
+            frames.append(self.load_frame(frame_paths[int(fidx)]))
         return frames
 
 

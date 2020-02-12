@@ -142,7 +142,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
     # create model
     print("=> creating model '{}'".format(args.arch))
-    model = Model(num_classes=2, extract_features=True, loss_type='softmax')
+    model = Model(num_classes=2, extract_features=False, loss_type='softmax')
 
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
@@ -206,7 +206,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     train_dataset = datasets.VideoFolder(file_input=args.metadata,
-                                         frames_duration=10,
+                                         frames_duration=12,
                                          sample_rate=1)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
@@ -220,9 +220,9 @@ def main_worker(gpu, ngpus_per_node, args):
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
     val_dataset = datasets.VideoFolder(file_input=args.metadata,
-                                       frames_duration=args.frames_duration,
-                                       sample_rate=args.sample_rate,
-                                       is_val=True)
+                                       frames_duration=12,
+                                       sample_rate=1,
+                                       split='validation')
     print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
