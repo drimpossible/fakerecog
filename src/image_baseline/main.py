@@ -80,6 +80,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 parser.add_argument('--log_freq', '-l', default=10, type=int,
                     metavar='N', help='frequency to write in tensorboard (default: 10)')
 parser.add_argument('--exp', type=str)
+parser.add_argument('--metadata', type=str,
+                    help='path to metadata for dataset')
 
 best_acc1 = 0
 
@@ -200,7 +202,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dataset = datasets.FFImageDataset(data_path=datasets.DATA_PATH)
+    train_dataset = datasets.FFImageDataset(json_data=args.metadata)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
     if args.distributed:
@@ -212,7 +214,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
-    val_dataset = datasets.FFImageValidation(data_path=datasets.DATA_PATH, split='val')
+    val_dataset = datasets.FFImageDataset(json_data=args.metadata, split='val')
     print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -364,7 +366,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint'):
-    filename += '.pth.tar'
+    filename = 'ckpt/' + filename + '.pth.tar'
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best_full.pth.tar')
