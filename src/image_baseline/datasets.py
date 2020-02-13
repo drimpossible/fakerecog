@@ -4,12 +4,11 @@ import numpy as np
 import json
 from PIL import Image as pil_image
 import cv2
-import dlib
 from torch.utils.data import Dataset
 from torchvision import transforms
 import itertools
 import random
-
+import json
 
 DATA_PATH = '/media/joanna/Data/faceforensicsplusplus/'
 flatten = lambda l: [item for sublist in l for item in sublist]
@@ -23,7 +22,7 @@ class FFImageDataset(Dataset):
 
     def __init__(self, json_data, split='train',
                  ):
-        self.json_data = json_data
+        self.json_data = json.load(open(json_data, 'r'))
         self.split = split
         self.get_file_list()
         self.transforms = xception_default_data_transforms = {
@@ -32,7 +31,7 @@ class FFImageDataset(Dataset):
                 transforms.ToTensor(),
                 transforms.Normalize([0.5] * 3, [0.5] * 3)
             ]),
-            'val': transforms.Compose([
+            'validation': transforms.Compose([
                 transforms.Resize((299, 299)),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5] * 3, [0.5] * 3)
@@ -97,7 +96,7 @@ class FFImageDataset(Dataset):
         for listdata in self.json_data:
             try:
                 if listdata['split'] == self.split:
-                    frames = glob.glob(listdata['frames_path'] + '/*.png')
+                    frames = glob.glob(listdata['frames_path'] + '/*.jpg')
                     file_list.extend(frames)
                     labels.extend([listdata['label']] * len(frames))
             except Exception as e:

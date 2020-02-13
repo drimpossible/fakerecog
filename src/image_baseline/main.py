@@ -170,6 +170,9 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             model = torch.nn.DataParallel(model).cuda()
 
+    for name, i in model.named_parameters():
+        if i.requires_grad == True:
+            print(name)
     # define loss function (criterion) and optimizer
     weights = [1.0, 1.0]
     class_weights = torch.FloatTensor(weights).cuda(args.gpu)
@@ -214,7 +217,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
-    val_dataset = datasets.FFImageDataset(json_data=args.metadata, split='val')
+    val_dataset = datasets.FFImageDataset(json_data=args.metadata, split='validation')
     print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
