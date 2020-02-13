@@ -3,6 +3,7 @@ import opts
 from detectors.detect import RetinaFaceDetector
 from dataio.crop_and_save import visualize_frames, fix_and_crop_bbox_size
 from trackers.track import get_tracks
+from dataio.jsonloader import load_dataset
 from utils import seed_everything, profile_onthefly, burst_video_into_frames, get_metadata
 import logger
 import gc
@@ -16,18 +17,18 @@ def run_pipeline(opt):
     console_logger.info(opt)
 
     # Open the dataset directory, which should have a dataset json, which contains all info there is about that dataset. 
-    with open(opt.data_dir+'/'+opt.dataset+'/'+'dataset.json','r') as f:
-        data = json.load(f)
+    data = load_dataset(opt.data_dir,opt.dataset)
     
     videof = list(data) #.keys())
     lenvid = len(videof)
     detector = RetinaFaceDetector(opt=opt, logger=console_logger, device=device) 
     current_idx = opt.current_idx if opt.current_idx!=0 else opt.worker_id # Enables restarting from middle, incase a run fails. 
     console_logger.debug("==> Starting face detection..")
-    burst_path = '/dev/shm/face_detector_exp_'+str(opt.worker_id)+'/'
-    shutil.rmtree(burst_path, ignore_errors=True)
+    
 
     for idx in range(current_idx, lenvid, opt.total_processes):
+        burst_path = '/dev/shm/face_detector_exp/'+videof[idx]
+        shutil.rmtree(burst_path, ignore_errors=True)
         console_logger.debug('Starting video: '+str(idx)+'/'+str(lenvid))
         try:
             video_path = videof[idx]

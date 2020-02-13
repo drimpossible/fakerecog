@@ -1,5 +1,6 @@
 from PIL import Image
 import cv2, torch
+from scipy.signal import savgol_filter
 from multiprocessing import Process
 
 def visualize_frames(paths, bboxes, confidence, landmarks, frame_ids):
@@ -25,6 +26,11 @@ def fix_and_crop_bbox_size(out_dir, bboxes, frame_ids, paths, scale, im_w, im_h,
     minx, miny, maxx, maxy = torch.Tensor([0]).long(), torch.Tensor([0]).long(), torch.Tensor([im_w]).long(), torch.Tensor([im_h]).long()
 
     center_x, center_y = (bboxes[:,2] + bboxes[:,0])/2, (bboxes[:,3] + bboxes[:,1])/2
+    center_x, center_y = center_x.numpy(), center_y.numpy()
+    #Interpolate
+
+    #Smooth
+    
     bbox_out = bboxes.clone()
     bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = center_x-cropw/2, center_y-croph/2, center_x+cropw/2, center_y+croph/2
     bbox_out = bbox_out.long()
