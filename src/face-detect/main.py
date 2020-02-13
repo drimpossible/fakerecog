@@ -20,6 +20,7 @@ def run_detector(opt):
     with open(opt.data_dir+'/'+opt.dataset+'/'+'processed_dataset.json','r') as f:
         data = json.load(f)
     
+<<<<<<< HEAD
     source_videof = list(data.keys())
     lenvid = len(source_videof)
 
@@ -27,6 +28,9 @@ def run_detector(opt):
     for idx in range(lenvid):
         videof.append(data[source_videof[idx]]['original'])
     videof = list(set(videof))
+=======
+    videof = list(data) #.keys())
+>>>>>>> 03ee137caa00e933bd2eb242d82b5951f3d4383c
     lenvid = len(videof)
 
     detector = RetinaFaceDetector(opt=opt, logger=console_logger, device=device) 
@@ -40,8 +44,10 @@ def run_detector(opt):
         shutil.rmtree(burst_path, ignore_errors=True)
 
         console_logger.debug('Starting video: '+str(idx)+'/'+str(lenvid))
-        video_path = opt.data_dir+'/'+opt.dataset+'/'+videof[idx]
-        assert(os.path.isfile(video_path))
+        try:
+            video_path = videof[idx]
+            print(video_path)
+            assert(os.path.isfile(video_path))
         
         height, width = data[videof[idx]]['height'], data[videof[idx]]['width']
         out_path = opt.out_dir+videof[idx][:-4]+'/' # Replace this hardcoded :-4 with format encoding obtained above?

@@ -3,7 +3,7 @@ import torchvision.transforms as transforms
 from detectors.utils import PriorBox, decode_boxes, decode_landms, AverageMeter, cfg_mnet, cfg_res50
 from detectors.retinaface import RetinaFace, load_model
 from torchvision.ops.boxes import batched_nms
-from dataio import dali, burst
+from dataio import burst #dali, burst
 
 class RetinaFaceDetector():
     def __init__(self, opt, logger, device):
