@@ -52,10 +52,10 @@ def get_tracks(opt, bboxes, landmarks, confidence, frames):
             for j in range(uniq_tracks.shape[0]):
                 if uniq_tracks[j]!=-1 and j!=i:
                     idx2 = torch.nonzero(uniq_tracks[j]==trackids,as_tuple=True)[0]
-                    isoverlap = np.intersect1d(idx1.numpy(), idx2.numpy()).shape[0]
-                    if not isoverlap:
-                        frame2 = frames[idx2] 
-                        start2, end2 = frame2.min().item(), frame2.max().item()
+                    frame2 = frames[idx2]
+                    start2, end2 = frame2.min().item(), frame2.max().item()
+                    isoverlap = np.intersect1d(frame2.numpy(), frame1.numpy()).shape[0]
+                    if not isoverlap: 
                         if start2 > end1 and (start2-end1)<min_delay_after:
                             min_delay_after = start2-end1
                             arrid_after = j
@@ -75,6 +75,7 @@ def get_tracks(opt, bboxes, landmarks, confidence, frames):
                 counts[i] += counts[arrid_before]
                 uniq_tracks[arrid_before] = -1
                 counts[arrid_before] = 0
+                
     uniq_tracks, counts = torch.unique(trackids, return_counts=True)
     
     tracked_detections = []

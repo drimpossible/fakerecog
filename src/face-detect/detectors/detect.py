@@ -21,8 +21,7 @@ class RetinaFaceDetector():
         #self.logger.info(self.net)
 
     def detect(self, video_path, height, width):
-        data_time, net_time, postproc_time = AverageMeter(), AverageMeter(), AverageMeter()
-        initt = time.time()
+        
         box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0).to(self.device)
         landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0).to(self.device)
 
@@ -40,10 +39,7 @@ class RetinaFaceDetector():
         batches = len(loader)
         paths = []
 
-        first = time.time()
-        init_time = initt-first
         with torch.no_grad():
-            start = time.time()
             for i, inputs in enumerate(loader):
                 # Input batch sequentially by frames (along with path of the frames for verifying correctness)
                 if self.opt.loader_type == 'video':
@@ -52,9 +48,6 @@ class RetinaFaceDetector():
                 elif self.opt.loader_type == 'burst':
                     path, data = inputs
                     data = data.to(self.device, non_blocking=True)
-                
-                datat = time.time()
-                data_time.update(datat - start)
 
                 # Batched forward pass
                 loc, conf, landms = self.net(data)
@@ -62,9 +55,6 @@ class RetinaFaceDetector():
                 boxes = boxes * box_scale / self.opt.resize
                 landms = decode_landms(landms, priors, self.cfg['variance'])
                 landms = landms * landms_scale / self.opt.resize
-
-                nett = time.time()
-                net_time.update(nett - datat)
 
                 scores = conf[:, :, 1]
                 mask = torch.gt(scores, self.opt.confidence_threshold)
@@ -86,12 +76,9 @@ class RetinaFaceDetector():
                 landmarks = landms if i==0 else torch.cat((landmarks, landms), dim=0)
                 confidence = scores if i==0 else torch.cat((confidence, scores), dim=0)
                 frame_ids = classes if i==0 else torch.cat((frame_ids, classes), dim=0)
-                if self.opt.loader_type == 'burst': paths += path
-                start = time.time()
-                postproc_time.update(start- nett)
-                total = (start-first)*1.0   
+                if self.opt.loader_type == 'burst': paths += path 
 
-        self.logger.info('Total time:{0:.4f}\t Data:{dt.sum:.4f}\t Net:{nt.sum:.4f}\t PostP:{pt.sum:.4f}\t'.format(total, dt=data_time, nt=net_time, pt=postproc_time))
+        #self.logger.info('Total time:{0:.4f}\t Data:{dt.sum:.4f}\t Net:{nt.sum:.4f}\t PostP:{pt.sum:.4f}\t'.format(total, dt=data_time, nt=net_time, pt=postproc_time))
         return [bboxes.cpu(), landmarks.cpu(), confidence.cpu(), frame_ids.cpu(), paths]
 
 

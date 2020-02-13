@@ -1,7 +1,6 @@
-from PIL import Image
+from PIL import Image, ImageChops
 import cv2, torch
 from scipy.signal import savgol_filter
-from multiprocessing import Process
 
 def visualize_frames(paths, bboxes, confidence, landmarks, frame_ids):
     for idx in range(len(frame_ids)):
@@ -19,31 +18,35 @@ def visualize_frames(paths, bboxes, confidence, landmarks, frame_ids):
         #print(paths[frame_ids[idx]][:-4]+'_detections_idx'+str(idx)+'.jpg')
         cv2.imwrite(paths[frame_ids[idx]][:-4]+'_detections_idx'+str(idx)+'.jpg', img_raw)
 
-def fix_and_crop_bbox_size(out_dir, bboxes, frame_ids, paths, scale, im_w, im_h, trackid, workers):
+def fix_bbox(bboxes, scale, im_w, im_h, orig_im_w, orig_im_h):
     w = (bboxes[:,2] - bboxes[:,0]).abs()
     h = (bboxes[:,3] - bboxes[:,1]).abs()
+    scalew, scaleh = (im_w*1.0)/(orig_im_w*1.0), (im_h*1.0)/(orig_im_h*1.0)
+
     cropw, croph = w.mean()*scale, h.mean()*scale
     minx, miny, maxx, maxy = torch.Tensor([0]).long(), torch.Tensor([0]).long(), torch.Tensor([im_w]).long(), torch.Tensor([im_h]).long()
 
     center_x, center_y = (bboxes[:,2] + bboxes[:,0])/2, (bboxes[:,3] + bboxes[:,1])/2
-    center_x, center_y = center_x.numpy(), center_y.numpy()
-    #Interpolate
-
-    #Smooth
     
     bbox_out = bboxes.clone()
-    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = center_x-cropw/2, center_y-croph/2, center_x+cropw/2, center_y+croph/2
+    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = (center_x-(cropw/2))*scalew, (center_y-(croph/2))*scaleh, (center_x+(cropw/2))*scalew, (center_y+(croph/2))*scaleh
     bbox_out = bbox_out.long()
     bbox_out[:,0] = torch.where(bbox_out[:,0] > 0, bbox_out[:,0], minx)
     bbox_out[:,1] = torch.where(bbox_out[:,1] > 0, bbox_out[:,1], miny)
     bbox_out[:,2] = torch.where(bbox_out[:,2] > 0, bbox_out[:,2], maxx)
     bbox_out[:,3] = torch.where(bbox_out[:,3] > 0, bbox_out[:,3], maxy)
 
-    for i in range(bbox_out.size(0)):
-        Process(target=crop_im, args=(out_dir, paths[frame_ids[i]], trackid, bbox_out[i,:])).start()
+    return bbox_out
 
-def crop_im(out_dir, frame_path, trackid, bbox):
-    img = Image.open(frame_path)
+def crop_im(outdir, burst_path, frameno, trackid, bbox):
+    img = Image.open(burst_path+"/%04d.jpg"%frameno)
     crop = img.crop(bbox.numpy()) 
-    frameno = 'track'+str(trackid)+'_'+frame_path.split('/')[-1]
-    crop.save(out_dir + frameno)
+    framepath = '/track'+str(trackid)+'_%04d.jpg'%frameno
+    crop.save(outdir+framepath)
+
+def diff_crop_im(outdir, burst_path, orig_burst_path, frameno, trackid, bbox):
+    img1 = Image.open(orig_burst_path+"/%04d.jpg"%frameno).crop(bbox.numpy())
+    img2 = Image.open(burst_path+"/%04d.jpg"%frameno).crop(bbox.numpy())
+    diff = ImageChops.difference(img1, img2)
+    framepath = '/track'+str(trackid)+'_%04d.jpg'%frameno
+    diff.save(outdir+framepath)
