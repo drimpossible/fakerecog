@@ -21,9 +21,9 @@ flatten = lambda l: [item for sublist in l for item in sublist]
 
 class FFImageDataset(Dataset):
 
-    def __init__(self, data_path, split='train',
+    def __init__(self, json_data, split='train',
                  ):
-        self.root_dir = data_path
+        self.json_data = json_data
         self.split = split
         self.get_file_list()
         self.transforms = xception_default_data_transforms = {
@@ -45,6 +45,7 @@ class FFImageDataset(Dataset):
         }
         # # Face detector
         # self.face_detector = dlib.get_frontal_face_detector()
+        self.int_label = lambda x: 1 if x == 'FAKE' else 0
 
     def get_boundingbox(self, face, width, height, scale=1.3, minsize=None):
         """
@@ -75,20 +76,41 @@ class FFImageDataset(Dataset):
 
         return x1, y1, size_bb
 
+    # def get_file_list(self):
+    #     original_images = sorted(glob.glob(self.root_dir + 'original_sequences/youtube/c23/images/*/*.png'))
+    #     fake_images = [sorted(
+    #         glob.glob(self.root_dir + 'manipulated_sequences/{}/youtube/c23/images/*/*.png'.format(i)))
+    #         for i in ['Deepfakes']][0] #, 'Face2Face', 'FaceSwap', 'NeuralTextures']]
+    #     # fake_images = list(itertools.chain.from_iterable(fake_images))
+    #     indexes = json.load(open('ffpp/{}.json'.format(self.split), 'r'))
+    #     org_indexes = flatten(indexes)
+    #     self.file_list = [(i, 0) for i in original_images if i.split('/')[-2] in org_indexes]
+    #     self.file_list += [(i, 1) for i in fake_images if i.split('/')[-2][:3] in org_indexes]
+
     def get_file_list(self):
-        original_images = sorted(glob.glob(self.root_dir + 'original_sequences/youtube/c23/images/*/*.png'))
-        fake_images = [sorted(
-            glob.glob(self.root_dir + 'manipulated_sequences/{}/youtube/c23/images/*/*.png'.format(i)))
-            for i in ['Deepfakes']][0] #, 'Face2Face', 'FaceSwap', 'NeuralTextures']]
-        # fake_images = list(itertools.chain.from_iterable(fake_images))
-        indexes = json.load(open('ffpp/{}.json'.format(self.split), 'r'))
-        org_indexes = flatten(indexes)
-        self.file_list = [(i, 0) for i in original_images if i.split('/')[-2] in org_indexes]
-        self.file_list += [(i, 1) for i in fake_images if i.split('/')[-2][:3] in org_indexes]
+        """
+        This function creates 3 lists: vid_names, labels and frame_cnts
+        :return:
+        """
+        labels = []
+        file_list = []
+        for listdata in self.json_data:
+            try:
+                if listdata['split'] == self.split:
+                    frames = glob.glob(listdata['frames_path'] + '/*.png')
+                    file_list.extend(frames)
+                    labels.extend([listdata['label']] * len(frames))
+            except Exception as e:
+                print(str(e))
+
+        self.file_list = file_list
+        self.labels = labels
 
 
     def __getitem__(self, index: int):
-        path, label = self.file_list[index]
+        path = self.file_list[index]
+        label = self.labels[index]
+        label = self.int_label(label)
         # path = random.choice(glob.glob(folder_path+'/*.png'))
         # image = self.transform(np.asarray(Image.open(image_path)))
         # image = cv2.imread(image_path)
