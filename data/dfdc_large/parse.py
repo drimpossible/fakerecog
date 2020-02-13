@@ -46,7 +46,7 @@ if __name__ == '__main__':
             master['./dfdc_train_part_'+str(i)+'/'+key] = masterval
         #print(master, len(master.keys()))
 
-    with open('dataset.json', 'w', encoding='utf-8') as f:
+    with open('processed_dataset.json', 'w', encoding='utf-8') as f:
         json.dump(master, f, ensure_ascii=False, indent=4)
         
             
