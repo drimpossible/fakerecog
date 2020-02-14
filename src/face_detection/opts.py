@@ -2,12 +2,12 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Retinaface based face detection')
-    parser.add_argument('--data_dir', default='/media/anarchicorganizer/Emilia/fakerecog/data/', type=str, help='Full path to where all datasets are stored')
-    parser.add_argument('--out_dir', default='/media/anarchicorganizer/Emilia/fakerecog/data/dfdc_bursted_optimized_test/', type=str, help='Full path to where bursted datasets are stored')
-    parser.add_argument('--lib_dir', default='/media/anarchicorganizer/Emilia/fakerecog/libs/', type=str, help='Directory where all pretrained models and libraries are stored. Limit: 1GB')
-    parser.add_argument('--log_dir', default='/media/anarchicorganizer/Emilia/fakerecog/logs/', type=str, help='Directory where all datasets are stored')
-    parser.add_argument('--exp_name', type=str, default='test_final', help='Experiment Name')
-    parser.add_argument('--dataset', type=str, default='dfdc_large', choices=['dfdc_preview','dfdc_large','FF++40','FF++24', 'dfdc_full_small'], help='Experiment Name')
+    parser.add_argument('--data_dir', required=True, type=str, help='Full path to where all datasets are stored')
+    parser.add_argument('--out_dir', required=True, type=str, help='Full path to where bursted datasets are stored')
+    parser.add_argument('--lib_dir', default='../libs/', type=str, help='Directory where all pretrained models and libraries are stored. Limit: 1GB')
+    parser.add_argument('--log_dir', default='../logs/', type=str, help='Directory where all logs are stored')
+    parser.add_argument('--exp_name', type=str, required=True, help='Experiment Name')
+    parser.add_argument('--dataset', type=str, default='dfdc_large', choices=['dfdc_preview','dfdc_large','FF++40','FF++24'], help='Experiment Name')
     parser.add_argument('--loader_type', type=str, default='burst', choices=['burst','video'], help='Type of dataloader')
     parser.add_argument('--batch_size', type=int, default=2, help='Batch size to be used in training')
     parser.add_argument('--model', default='Resnet50', type=str, choices=['Resnet50','Mobilenet0.25'], help='Trained state_dict file path to open')

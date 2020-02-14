@@ -1,6 +1,5 @@
 from PIL import Image, ImageChops
 import cv2, torch
-from scipy.signal import savgol_filter
 
 def visualize_frames(paths, bboxes, confidence, landmarks, frame_ids):
     for idx in range(len(frame_ids)):

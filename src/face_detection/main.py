@@ -5,7 +5,6 @@ from trackers.track import get_tracks
 from utils import seed_everything, profile_onthefly, burst_video_into_frames, get_metadata
 import logger
 import gc
-from multiprocessing import Pool
 
 if __name__ == '__main__':
     opt = opts.parse_args()
