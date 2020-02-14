@@ -18,11 +18,10 @@ def get_metadata(video_path):
     return height, width, fps, frame_cnt, encoding
 
 
-
 if __name__ == '__main__':
     master = {}
 
-    with open('dataset.json','r') as f:
+    with open('./dataset.json','r') as f:
         data = json.load(f)
     
     for key, value in data.items():
@@ -31,10 +30,10 @@ if __name__ == '__main__':
         masterval['augmentations'] = value['augmentations']
         if value['label'] == 'fake':
             masterval['label'] = 'FAKE'
-            masterval['original'] = './original_videos/'+value['target_id']+'/'+value['source_video']+'_'+key[-7:]
+            masterval['original'] = 'original_videos/'+value['target_id']+'/'+value['source_video']+'_'+key[-7:]
         else:
             masterval['label'] = 'REAL'
-            masterval['original'] = './'+key
+            masterval['original'] = key
             
         # Encode all metadata in json
         height, width, fps, frames, encoding = get_metadata(video_path='./'+key)
@@ -43,7 +42,7 @@ if __name__ == '__main__':
         masterval['fps'] = fps
         masterval['frames'] = frames
         masterval['encoding'] = encoding
-        master['./'+key] = masterval
+        master[key] = masterval
         #print(master, len(master.keys()))
 
     with open('processed_dataset.json', 'w', encoding='utf-8') as f:

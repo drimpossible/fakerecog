@@ -32,9 +32,9 @@ if __name__ == '__main__':
             masterval['label'] = value['label']
             masterval['split'] = value['split']
             if value['label'] == 'FAKE':
-                masterval['original'] = './dfdc_train_part_'+str(i)+'/'+value['original']
+                masterval['original'] = 'dfdc_train_part_'+str(i)+'/'+value['original']
             else:
-                masterval['original'] = './dfdc_train_part_'+str(i)+'/'+key
+                masterval['original'] = 'dfdc_train_part_'+str(i)+'/'+key
             
             # Encode all metadata in json
             height, width, fps, frames, encoding = get_metadata(video_path='./dfdc_train_part_'+str(i)+'/'+key)
@@ -43,7 +43,7 @@ if __name__ == '__main__':
             masterval['fps'] = fps
             masterval['frames'] = frames
             masterval['encoding'] = encoding
-            master['./dfdc_train_part_'+str(i)+'/'+key] = masterval
+            master['dfdc_train_part_'+str(i)+'/'+key] = masterval
         #print(master, len(master.keys()))
 
     with open('processed_dataset.json', 'w', encoding='utf-8') as f:
