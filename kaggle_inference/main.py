@@ -7,6 +7,8 @@
 import torch, time
 from torchvision import transforms
 from utils import burst, forward, opts, detect_utils
+import pandas as pd
+
 
 if __name__ == '__main__':
     opt = opts.parse_args()
@@ -32,6 +34,6 @@ if __name__ == '__main__':
     print('Time taken for processing 400 videos: ',(end-start))
 
 
-    # submission_df_xception = pd.DataFrame({"filename": test_videos, "label": predictions})
-    # submission_df_xception.to_csv("submission.csv", index=False)
+    submission_df_xception = pd.DataFrame({"filename": videoid, "label": allprobs})
+    submission_df_xception.to_csv("submission_test.csv", index=False)
     

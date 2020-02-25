@@ -13,21 +13,16 @@ class InferenceForward():
         torch.set_grad_enabled(False)
         torch.backends.cudnn.benchmark = True
         self.opt = opt
-        self.det_mean=torch.Tensor([104.0/256.0, 117.0/256.0, 123.0/256.0]).cuda()
+        self.det_mean = torch.Tensor([104.0/256.0, 117.0/256.0, 123.0/256.0]).cuda()
         self.det_std=torch.Tensor([1/256.0, 1.0/256.0, 1.0/256.0]).cuda()
         # # Insert recognition network mean and var here, and load recognition net into self.recnet
-        # self.rec_mean=
-        # self.rec_std=
+        self.rec_mean = torch.Tensor([0.5, 0.5, 0.5]).cuda()
+        self.rec_std =  torch.Tensor([0.5, 0.5, 0.5]).cuda()
         self.cfg = cfg_mnet if opt.model == "Mobilenet0.25" else cfg_res50
         self.detnet = load_model(self.cfg, opt.lib_dir)
-        #self.recnet =
         model, image_size, *_ = model_selection('xception_fulltraining', num_out_classes=2, pretrained=opt.ckpt)
-        self.recognition_model = model.cuda()
+        self.recnet = model.cuda()
 
-        self.transformer = transforms.Compose([transforms.Resize((299, 299)),
-                                               transforms.ToTensor(),
-                                               transforms.Normalize([0.5] * 3, [0.5] * 3)
-                                            ])
 
     def detect(self, loader):
         with torch.no_grad():
@@ -61,7 +56,6 @@ class InferenceForward():
                 # Arrange by frames
                 idx = torch.argsort(classes)
                 landms, boxes, scores, classes = landms[idx, :], boxes[idx, :], scores[idx], classes[idx]
-
                 maxprob = -1
                 tracked_out = get_tracks(self.opt, boxes.cpu(), landms.cpu(), scores.cpu(), classes.cpu())
 
@@ -69,17 +63,17 @@ class InferenceForward():
                 for idx,tracks in enumerate(tracked_out):
                     tracklet_bboxes, tracklet_landmarks, tracklet_confidence, tracklet_frames, tracklet_smooth_bboxes = tracks
                     final_bboxes = fix_bbox(bboxes=tracklet_smooth_bboxes, scale=self.opt.scale, im_w=width, im_h=height) # We do our own standardization first to ensure all frames are of same size, same as training code.
-                    bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
+                    bbox_frame = torch.cat((tracklet_frames.float().unsqueeze(1),final_bboxes),dim=1) 
+                    #bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
                     bbox_frame = bbox_frame.cuda()
+                    # TODO: interpolate the bbox predictions across frames, here I select only oframes for which bbox detected
                     cropped_im = roi_align(images, bbox_frame, (299,299)) # RoI align does cropping and resizing part of it. 
-                    cropped_im = self.transformer(cropped_im)
-                    output = self.recognition_model(cropped_im)
-                    maxprob = output.mean().data.numpy()
-                    # cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
-                    # prob = self.recnet(images) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
-                    # out = float(prob.mean()[1]) # Take the probability of being fake here, minor adjustment.
-                    # if maxprob > out:
-                    #     maxprob = out
+                    cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
+                    prob = self.recnet(cropped_im) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
+                    prob = torch.nn.functional.softmax(prob, 1)
+                    out = float(prob.mean(0)[1]) # Take the probability of being fake here, minor adjustment.
+                    if maxprob < out:
+                        maxprob = out
                 allprobs.append(maxprob)
                 videoid.append(paths[0][0].split('/')[-2]+'.mp4')    
         return allprobs, videoid

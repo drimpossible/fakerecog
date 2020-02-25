@@ -3,7 +3,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Retinaface based face detection')
-    parser.add_argument('--lib_dir', default='/media/anarchicorganizer/Emilia/fakerecog/libs/', type=str,
+    parser.add_argument('--lib_dir', default='ckpt', type=str,
                         help='Directory where all pretrained models and libraries are stored. Limit: 1GB')
     parser.add_argument('--log_dir', default='/media/anarchicorganizer/Emilia/fakerecog/logs/', type=str,
                         help='Directory where all datasets are stored')
@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('--min_track_hits', type=int, default=3, help='Start from the beginning')
     parser.add_argument('--frame_rate', type=int, default=12, help='Frame rate to burst videos')
     parser.add_argument('--num_frames', type=int, default=32, help='Number of frames used per videos')
+    parser.add_argument('--ckpt', type=str, default='ckpt/ckpt.pth.tar')
 
     # Default arguments
     parser.add_argument('--resize', default=1.0, type=float, help='Resize an image')
