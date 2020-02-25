@@ -23,11 +23,11 @@ if __name__ == '__main__':
     # Open the dataset directory, which should have a dataset json, which contains all info there is about that dataset. 
     loader = torch.utils.data.DataLoader(burst.InferenceLoader(cfg, test_dir, frame_rate=opt.frame_rate, num_frames=opt.num_frames, transform=transforms.ToTensor()), batch_size=1, shuffle=False, num_workers=opt.workers, pin_memory=True)
     batches = len(loader)
-    print(batches)
+    
 
     inf = forward.InferenceForward(opt)
-    inf.detect(loader)
-
+    allprobs = inf.detect(loader)
+    
 
 
     # submission_df_xception = pd.DataFrame({"filename": test_videos, "label": predictions})

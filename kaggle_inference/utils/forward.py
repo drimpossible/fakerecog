@@ -4,6 +4,7 @@ from .detect_utils import decode_boxes, decode_landms, AverageMeter, cfg_mnet, c
 from .retinaface import RetinaFace, load_model
 from .track import get_tracks
 from torchvision.ops.boxes import batched_nms
+from torchvision.ops import roi_align
 
 class InferenceForward():
     def __init__(self, opt):
@@ -18,21 +19,22 @@ class InferenceForward():
         # Set network
         self.cfg = cfg_mnet if opt.model == "Mobilenet0.25" else cfg_res50
         name = 'mobilenetV1X0.25_pretrain.tar' if opt.model == "Mobilenet0.25" else 'ResNet50.pth' 
-        self.net = load_model(self.cfg, opt.lib_dir)
-        #self.logger.info(self.net)
+        self.detnet = load_model(self.cfg, opt.lib_dir)
+        #self.recnet = 
 
     def detect(self, loader):
         with torch.no_grad():
             start = time.time()
+            allprobs = []
+            videoid = []
             for i, inputs in enumerate(loader):
                 images, box_scale, landms_scale, priors, paths, width, height = inputs
                 images, box_scale, landms_scale, priors = images.squeeze(0).cuda(non_blocking=True), box_scale.cuda(non_blocking=True), landms_scale.cuda(non_blocking=True), priors.cuda(non_blocking=True)
                 im = images.clone()
                 im.sub_(self.det_mean[None, :, None, None]).div_(self.det_std[None, :, None, None])
-                #print(images.shape, box_scale.shape, priors.shape, paths)
+
                 # Batched forward pass
-                loc, conf, landms = self.net(im)
-                #print(im.shape, loc.shape, priors.shape)
+                loc, conf, landms = self.detnet(im)
                 boxes = decode_boxes(loc, priors, self.cfg['variance'])
                 boxes = boxes * box_scale / self.opt.resize
                 landms = decode_landms(landms, priors, self.cfg['variance'])
@@ -52,14 +54,22 @@ class InferenceForward():
                 idx = torch.argsort(classes)
                 landms, boxes, scores, classes = landms[idx, :], boxes[idx, :], scores[idx], classes[idx]
 
+                maxprob = -1
                 tracked_out = get_tracks(self.opt, boxes.cpu(), landms.cpu(), scores.cpu(), classes.cpu())
                 for idx,tracks in enumerate(tracked_out):
                     tracklet_bboxes, tracklet_landmarks, tracklet_confidence, tracklet_frames, tracklet_smooth_bboxes = tracks
                     final_bboxes = fix_bbox(bboxes=tracklet_smooth_bboxes, scale=self.opt.scale, im_w=width, im_h=height)
-                # crops = roi_align(image, boxes, box_index)
-                # crops.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None])
-
-        return 1
+                    bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1)
+                    bbox_frame = bbox_frame.cuda()
+                    cropped_im = roi_align(images, bbox_frame, (299,299))
+                    # cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None])
+                    # prob = self.recnet(images)
+                    # out = float(prob.mean())
+                    # if maxprob > out:
+                    #     maxprob = out
+                allprobs.append(maxprob)
+                videoid.append(paths[0].split('/')[-2])    
+        return allprobs,videoid
 
 
 
