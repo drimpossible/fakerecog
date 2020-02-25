@@ -96,7 +96,8 @@ class FFImageDataset(Dataset):
         for listdata in self.json_data:
             try:
                 if listdata['split'] == self.split:
-                    frames = glob.glob(listdata['frames_path'] + '/*.jpg')
+                    frames = glob.glob(listdata['frames_path'] + '/frames/*.jpg')
+                    frames = sorted(frames)[::3]
                     file_list.extend(frames)
                     labels.extend([listdata['label']] * len(frames))
             except Exception as e:

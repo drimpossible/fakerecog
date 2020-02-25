@@ -64,8 +64,7 @@ class VideoFolder(torch.utils.data.Dataset):
         if not self.is_val:
             self.transforms = [
                 gtransforms.GroupResize((224, 224)),
-                # gtransforms.GroupRandomCrop((224, 224)),
-                # gtransforms.GroupRandomHorizontalFlip()
+                gtransforms.GroupRandomHorizontalFlip()
             ]
         else:
             self.transforms = [
@@ -94,8 +93,8 @@ class VideoFolder(torch.utils.data.Dataset):
         for listdata in self.json_data:
             try:
                 if listdata['split'] == self.split:
-                    frames = os.listdir(listdata['frames_path'])
-                    if len(frame_cnts) > 12:
+                    frames = os.listdir(listdata['frames_path']+'/frames/')
+                    if len(frames) > 12:
                         frame_cnts.append(int(len(frames)))
                         vid_names.append(listdata['vid_id'])
                         labels.append(listdata['label'])
@@ -104,6 +103,7 @@ class VideoFolder(torch.utils.data.Dataset):
             except Exception as e:
                 print(str(e))
 
+        print('FGGHJ', len(folder_paths))
         self.folder_paths = folder_paths
         self.vid_names = vid_names
         self.labels = labels
@@ -129,7 +129,10 @@ class VideoFolder(torch.utils.data.Dataset):
         :return:
         """
         frame_folder = self.folder_paths[index]
-        frame_paths = sorted(glob.glob(frame_folder + '/track1*.jpg'))
+        frame_paths = sorted(glob.glob(frame_folder + '/frames/*.jpg'))
+        tracks = np.unique([i[:-9] for i in frame_paths])
+        frame_paths = np.random.choice(tracks) + '*.jpg'
+        frame_paths = sorted(glob.glob(frame_paths))
         n_frame = len(frame_paths) - 1
         d = self.in_duration * self.sample_rate
         if n_frame > d:

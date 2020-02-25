@@ -34,11 +34,11 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='xception')
                     #     ' (default: resnet18)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=3, type=int, metavar='N',
+parser.add_argument('--epochs', default=8, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=32, type=int,
+parser.add_argument('-b', '--batch-size', default=72, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -81,10 +81,11 @@ parser.add_argument('--log_freq', '-l', default=10, type=int,
                     metavar='N', help='frequency to write in tensorboard (default: 10)')
 parser.add_argument('--metadata', type=str,
                     help='path to metadata for dataset')
-parser.add_argument('--frames_duration', type=str,
+parser.add_argument('--frames_duration', type=int,
                     help='number of frames')
 parser.add_argument('--sample_rate', type=str,
                     help='fps')
+parser.add_argument('--exp', type=str)
 
 best_acc1 = 0
 
@@ -206,7 +207,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     train_dataset = datasets.VideoFolder(file_input=args.metadata,
-                                         frames_duration=12,
+                                         frames_duration=args.frames_duration,
                                          sample_rate=1)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
@@ -220,7 +221,7 @@ def main_worker(gpu, ngpus_per_node, args):
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
     val_dataset = datasets.VideoFolder(file_input=args.metadata,
-                                       frames_duration=12,
+                                       frames_duration=args.frames_duration,
                                        sample_rate=1,
                                        split='validation')
     print('Number of folders in train set {}'.format(len(val_dataset)))
@@ -234,7 +235,7 @@ def main_worker(gpu, ngpus_per_node, args):
         return
 
     # training, start a logger
-    tb_logdir = os.path.join(args.logdir, args.arch.lower())
+    tb_logdir = os.path.join(args.logdir, args.exp)
     if not (os.path.exists(tb_logdir)):
         os.makedirs(tb_logdir)
     tb_logger = Logger(tb_logdir)
@@ -262,7 +263,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best)
+            }, is_best, filename=args.exp)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None):
@@ -324,6 +325,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None
 def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
+    nll = AverageMeter('NLL', '')
     top1 = AverageMeter('Acc@1', ':6.2f')
     progress = ProgressMeter(
         len(val_loader),
@@ -343,10 +345,9 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
             # compute output
             output = model(images)
             loss = criterion(output, target)
-
             # measure accuracy and record loss
             acc1 = accuracy(output, target, topk=(1,))
-            losses.update(loss.item(), images.size(0))
+            losses.update(loss.item(), 1)
             top1.update(acc1[0][0], images.size(0))
 
             # measure elapsed time
@@ -357,7 +358,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
                 progress.display(i)
 
         print(' * Acc@1 {top1.avg:.3f} '.format(top1=top1))
-
+        print(' * Loss {loss.avg:.5f}'.format(loss=losses))
     if epoch is not None and tb_logger is not None:
         logs = OrderedDict()
         logs['Val_EpochLoss'] = losses.avg
@@ -370,12 +371,11 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
 
     return top1.avg
 
-
-def save_checkpoint(state, is_best, filename='checkpoint_full.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint'):
+    filename = 'ckpt/' + filename + '.pth.tar'
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best_full.pth.tar')
-
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
