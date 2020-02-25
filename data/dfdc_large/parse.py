@@ -31,6 +31,7 @@ if __name__ == '__main__':
             masterval = {}
             masterval['label'] = value['label']
             masterval['split'] = value['split']
+            masterval['our_split'] = 'train' if i > 8 else 'val'
             if value['label'] == 'FAKE':
                 masterval['original'] = 'dfdc_train_part_'+str(i)+'/'+value['original']
             else:

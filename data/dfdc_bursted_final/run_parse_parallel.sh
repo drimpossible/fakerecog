@@ -3,4 +3,5 @@ do
     python parse.py $i &
 done
 wait
+python combine.py
 echo "Done!"

@@ -55,7 +55,11 @@ if __name__ == '__main__':
             
             bboxes, landmarks, confidence, frame_ids, paths = out
             detectt = time.time()
-            tracked_out = get_tracks(opt, bboxes, landmarks, confidence, frame_ids)
+            try:
+                tracked_out = get_tracks(opt, bboxes, landmarks, confidence, frame_ids)
+            except RuntimeError:
+                console_logger.info("WARNING: No faces found in the video: "+videof[idx])
+                continue
             with open(out_path+'detections.pkl', 'wb') as handle:
                pickle.dump((out, tracked_out), handle, protocol=pickle.HIGHEST_PROTOCOL)    
                console_logger.info("Completed saving to: "+out_path+'detections.pkl')

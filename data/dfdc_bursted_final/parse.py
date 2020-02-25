@@ -33,6 +33,7 @@ for d in dirlist:
             tempdic['width'] = width
             tempdic['height'] = height
             tempdic['absval'] = int(absdiff)
+            tempdic['image_label'] = 'REAL' if int(absdiff) < 25000 else 'FAKE'
             absval.append(absdiff)
             dic[root+d+'/frames/'+f] = tempdic
 

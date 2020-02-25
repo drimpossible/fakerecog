@@ -32,7 +32,21 @@ def crop_video(console_logger, datadir, dataset, outdir, orig_video_path, video_
         console_logger.info('Cropped and saved frames to '+outdir+video_path[:-4]+'/frames/')
         shutil.rmtree(orig_burst_path, ignore_errors=True)
         shutil.rmtree(burst_path, ignore_errors=True)
+
+def check_video(outdir, orig_video_path, video_path):   
+    with open(outdir+orig_video_path[:-4]+'/detections.pkl', 'rb') as handle:
+            out, tracked_out = pickle.load(handle)
+
+    total = 0
+    for idx,tracks in enumerate(tracked_out):
+        _, _, _, tracklet_frames, _ = tracks
+        total += tracklet_frames.size(0)
     
+    numframes = len([name for name in os.listdir(outdir+video_path[:-4]+'/frames/') if os.path.isfile(outdir+video_path[:-4]+'/frames/'+name)])
+    numdiffframes = len([name for name in os.listdir(outdir+video_path[:-4]+'/diff_frames/') if os.path.isfile(outdir+video_path[:-4]+'/diff_frames/'+name)])
+    if ((numframes<=total-5) or (numdiffframes<=total-5)
+        shutil.rmtree(outdir+video_path[:-4]+'/frames/', ignore_errors=True)
+        shutil.rmtree(outdir+video_path[:-4]+'/diff_frames/', ignore_errors=True)
 
 if __name__ == '__main__':
     opt = opts.parse_args()
@@ -49,4 +63,5 @@ if __name__ == '__main__':
 
     for idx in range(opt.process_id, lenvid, opt.total_processes):
         console_logger.debug('Processing video: '+str(idx)+'/'+str(lenvid-1)+'..')
+        check_video(outdir=opt.out_dir, orig_video_path=data[videof[idx]]['original'], video_path=videof[idx])
         crop_video(console_logger=console_logger, datadir=opt.data_dir, dataset=opt.dataset, outdir=opt.out_dir, orig_video_path=data[videof[idx]]['original'], video_path=videof[idx], frame_rate=opt.frame_rate, scale=opt.scale, width=data[videof[idx]]['width'], height=data[videof[idx]]['height'], orig_width=data[data[videof[idx]]['original']]['width'], orig_height=data[data[videof[idx]]['original']]['height'])
