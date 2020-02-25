@@ -17,13 +17,13 @@ import torchvision
 
 def return_pytorch04_xception(pretrained=True):
     # Raises warning "src not broadcastable to dst" but thats fine
-    model = xception(pretrained=False)
+    model = xception(pretrained='xception')
     if pretrained:
         # Load model in torch 0.4+
         model.fc = model.last_linear
         del model.last_linear
         state_dict = torch.load(
-            '/home/joanna/.torch/models/xception-b5690688.pth')
+            '/homes/53/joanna/.torch/models/xception-b5690688.pth')
         for name, weights in state_dict.items():
             if 'pointwise' in name:
                 state_dict[name] = weights.unsqueeze(-1).unsqueeze(-1)
@@ -58,7 +58,7 @@ class TransferModel(nn.Module):
                 param.requires_grad = False
             for param in self.model.last_linear.parameters():
                 param.requires_grad = True
-
+            
         # elif modelchoice == 'resnet50' or modelchoice == 'resnet18':
         #     if modelchoice == 'resnet50':
         #         self.model = torchvision.models.resnet50(pretrained=True)
