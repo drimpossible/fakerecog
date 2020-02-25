@@ -56,7 +56,7 @@ def run_pipeline(opt):
 
             # TODO: Add the cropping part over here?
             with open(out_path+'detections.pkl', 'wb') as handle:
-               pickle.dump((tracked_out,paths), handle, protocol=pickle.HIGHEST_PROTOCOL)    
+               pickle.dump((tracked_out, paths), handle, protocol=pickle.HIGHEST_PROTOCOL)
                console_logger.debug("Completed saving to: "+out_path+'detections.pkl')
 
             # profile_onthefly(detector.detect)(video_path=opt.data_dir+'/'+videof[idx], height=height, width=width)
