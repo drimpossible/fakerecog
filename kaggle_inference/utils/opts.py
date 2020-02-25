@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument('--max_track_age', type=int, default=20, help='Start from the beginning')
     parser.add_argument('--min_track_hits', type=int, default=3, help='Start from the beginning')
     parser.add_argument('--frame_rate', type=int, default=12, help='Frame rate to burst videos')
-    parser.add_argument('--num_frames', type=int, default=16, help='Number of frames used per videos')
+    parser.add_argument('--num_frames', type=int, default=32, help='Number of frames used per videos')
 
     # Default arguments
     parser.add_argument('--resize', default=1.0, type=float, help='Resize an image')

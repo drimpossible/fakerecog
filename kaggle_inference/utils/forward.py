@@ -14,11 +14,10 @@ class InferenceForward():
         self.opt = opt
         self.det_mean=torch.Tensor([104.0/256.0, 117.0/256.0, 123.0/256.0]).cuda()
         self.det_std=torch.Tensor([1/256.0, 1.0/256.0, 1.0/256.0]).cuda()
-        #self.rec_mean=
-        #self.rec_std=
-        # Set network
+        # # Insert recognition network mean and var here, and load recognition net into self.recnet
+        # self.rec_mean=
+        # self.rec_std=
         self.cfg = cfg_mnet if opt.model == "Mobilenet0.25" else cfg_res50
-        name = 'mobilenetV1X0.25_pretrain.tar' if opt.model == "Mobilenet0.25" else 'ResNet50.pth' 
         self.detnet = load_model(self.cfg, opt.lib_dir)
         #self.recnet = 
 
@@ -31,6 +30,7 @@ class InferenceForward():
                 images, box_scale, landms_scale, priors, paths, width, height = inputs
                 images, box_scale, landms_scale, priors = images.squeeze(0).cuda(non_blocking=True), box_scale.cuda(non_blocking=True), landms_scale.cuda(non_blocking=True), priors.cuda(non_blocking=True)
                 im = images.clone()
+                # Normalization for detection model
                 im.sub_(self.det_mean[None, :, None, None]).div_(self.det_std[None, :, None, None])
 
                 # Batched forward pass
@@ -56,20 +56,23 @@ class InferenceForward():
 
                 maxprob = -1
                 tracked_out = get_tracks(self.opt, boxes.cpu(), landms.cpu(), scores.cpu(), classes.cpu())
+
+                # Each pass in this loop is 1 track. Make all frame modifications as per needed for video model here. 
                 for idx,tracks in enumerate(tracked_out):
                     tracklet_bboxes, tracklet_landmarks, tracklet_confidence, tracklet_frames, tracklet_smooth_bboxes = tracks
-                    final_bboxes = fix_bbox(bboxes=tracklet_smooth_bboxes, scale=self.opt.scale, im_w=width, im_h=height)
-                    bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1)
+                    final_bboxes = fix_bbox(bboxes=tracklet_smooth_bboxes, scale=self.opt.scale, im_w=width, im_h=height) # We do our own standardization first to ensure all frames are of same size, same as training code.
+                    bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
                     bbox_frame = bbox_frame.cuda()
-                    cropped_im = roi_align(images, bbox_frame, (299,299))
-                    # cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None])
-                    # prob = self.recnet(images)
-                    # out = float(prob.mean())
+                    cropped_im = roi_align(images, bbox_frame, (299,299)) # RoI align does cropping and resizing part of it. 
+
+                    # cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
+                    # prob = self.recnet(images) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
+                    # out = float(prob.mean()[1]) # Take the probability of being fake here, minor adjustment.
                     # if maxprob > out:
                     #     maxprob = out
                 allprobs.append(maxprob)
-                videoid.append(paths[0].split('/')[-2])    
-        return allprobs,videoid
+                videoid.append(paths[0][0].split('/')[-2]+'.mp4')    
+        return allprobs, videoid
 
 
 

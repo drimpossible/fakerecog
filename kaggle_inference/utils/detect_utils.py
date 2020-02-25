@@ -2,7 +2,6 @@ import torch
 from itertools import product as product
 from math import ceil
 
-
 class PriorBox(object):
     def __init__(self, cfg, image_size=None):
         super(PriorBox, self).__init__()

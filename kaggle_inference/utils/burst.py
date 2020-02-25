@@ -102,10 +102,12 @@ class InferenceLoader(VisionDataset):
         vid_path = self.video_paths[index]
         vid_file = vid_path.split('/')[-1]
         
+        # Burst video into /dev/shm/. Be careful about running out of memory there. /dev/shm/ only has 16GB memory (should be way more than enough)
         burst_path = '/dev/shm/face_detector_exp/'+vid_file[:-4]
         burst_video_into_frames(vid_path=vid_path, burst_dir=burst_path, frame_rate=self.frame_rate)
         img_paths = get_all_image_paths(burst_path)
-        #print(img_paths)
+        
+        # Sample num_frames samples from each video and concat them in batch_size dimension.
         for i in range(self.num_frames):
             path = img_paths[i]
             sample = self.loader(path)
