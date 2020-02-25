@@ -7,7 +7,7 @@
 import torch, time
 from torchvision import transforms
 from utils import burst, forward, opts, detect_utils
-import pandas as pd
+import csv
 
 
 if __name__ == '__main__':
@@ -15,8 +15,9 @@ if __name__ == '__main__':
     print(opt)
     assert(torch.cuda.is_available()), 'Error: No CUDA-enabled device found!'
     
-    #test_dir = "/kaggle/input/deepfake-detection-challenge/test_videos/" # Directory containing all test videos on kaggle. Should be constant.
-    test_dir = '/media/anarchicorganizer/Emilia/fakerecog/data/dfdc_testing/test_videos/'
+    test_dir = "/kaggle/input/deepfake-detection-challenge/test_videos/" # Directory containing all test videos on kaggle. Should be constant.
+    #test_dir = '/bigssd/joanna/dfdc_preview/test_videos/'
+    #test_dir = '/bigssd/joanna/fakerecog/data/dfdc_large/dfdc_train_part_0/'
 
     print("PyTorch version:", torch.__version__)
     print("CUDA version:", torch.version.cuda)
@@ -33,7 +34,8 @@ if __name__ == '__main__':
     end = time.time()
     print('Time taken for processing 400 videos: ',(end-start))
 
-
-    submission_df_xception = pd.DataFrame({"filename": videoid, "label": allprobs})
-    submission_df_xception.to_csv("submission_test.csv", index=False)
+    submission = open('submission.csv', mode='w')
+    submission = csv.writer(submission, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    for (vid, p) in zip(videoid, allprobs):
+        submission.writerow([vid, p])
     
