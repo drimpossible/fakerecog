@@ -105,7 +105,7 @@ def fix_bbox(bboxes, scale, im_w, im_h):
     center_x, center_y = (bboxes[:,2] + bboxes[:,0])/2, (bboxes[:,3] + bboxes[:,1])/2
     
     bbox_out = bboxes.clone()
-    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = (center_x-(cropw/2))*im_w, (center_y-(croph/2))*im_h, (center_x+(cropw/2))*im_w, (center_y+(croph/2))*im_h
+    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = (center_x-(cropw/2)), (center_y-(croph/2)), (center_x+(cropw/2)), (center_y+(croph/2))
     bbox_out[:,0] = torch.where(bbox_out[:,0] > 0, bbox_out[:,0], minx)
     bbox_out[:,1] = torch.where(bbox_out[:,1] > 0, bbox_out[:,1], miny)
     bbox_out[:,2] = torch.where(bbox_out[:,2] > 0, bbox_out[:,2], maxx)
