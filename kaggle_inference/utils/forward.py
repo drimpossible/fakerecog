@@ -3,6 +3,7 @@ import torchvision.transforms as transforms
 from .detect_utils import decode_boxes, decode_landms, AverageMeter, cfg_mnet, cfg_res50, fix_bbox
 from .retinaface import RetinaFace, load_model
 from .track import get_tracks
+from .models import model_selection
 from torchvision.ops.boxes import batched_nms
 from torchvision.ops import roi_align
 
@@ -19,7 +20,14 @@ class InferenceForward():
         # self.rec_std=
         self.cfg = cfg_mnet if opt.model == "Mobilenet0.25" else cfg_res50
         self.detnet = load_model(self.cfg, opt.lib_dir)
-        #self.recnet = 
+        #self.recnet =
+        model, image_size, *_ = model_selection('xception_fulltraining', num_out_classes=2, pretrained=opt.ckpt)
+        self.recognition_model = model.cuda()
+
+        self.transformer = transforms.Compose([transforms.Resize((299, 299)),
+                                               transforms.ToTensor(),
+                                               transforms.Normalize([0.5] * 3, [0.5] * 3)
+                                            ])
 
     def detect(self, loader):
         with torch.no_grad():
@@ -64,7 +72,9 @@ class InferenceForward():
                     bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
                     bbox_frame = bbox_frame.cuda()
                     cropped_im = roi_align(images, bbox_frame, (299,299)) # RoI align does cropping and resizing part of it. 
-
+                    cropped_im = self.transformer(cropped_im)
+                    output = self.recognition_model(cropped_im)
+                    maxprob = output.mean().data.numpy()
                     # cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
                     # prob = self.recnet(images) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
                     # out = float(prob.mean()[1]) # Take the probability of being fake here, minor adjustment.
