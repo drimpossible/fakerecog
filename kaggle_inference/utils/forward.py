@@ -78,7 +78,8 @@ class InferenceForward():
                     allprobs.append(maxprob)
                 except:
                     allprobs.append(0.5)
-                videoid.append(paths[0][0].split('/')[-2]+'.mp4')    
+                videoid.append(paths[0][0].split('/')[-2]+'.mp4')
+        assert(len(allprobs)==len(videoid) and len(allprobs)==len(loader))
         return allprobs, videoid
 
 
