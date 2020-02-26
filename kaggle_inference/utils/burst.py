@@ -101,30 +101,32 @@ class InferenceLoader(VisionDataset):
         """
         vid_path = self.video_paths[index]
         vid_file = vid_path.split('/')[-1]
-        
-        # Burst video into /dev/shm/. Be careful about running out of memory there. /dev/shm/ only has 16GB memory (should be way more than enough)
-        burst_path = '/dev/shm/face_detector_exp/'+vid_file[:-4]
-        burst_video_into_frames(vid_path=vid_path, burst_dir=burst_path, frame_rate=self.frame_rate)
-        img_paths = get_all_image_paths(burst_path)
-        
-        # Sample num_frames samples from each video and concat them in batch_size dimension.
-        for i in range(self.num_frames):
-            path = img_paths[i]
-            sample = self.loader(path)
-            if i==0:
-                width, height = sample.size
-            if self.transform is not None:
-                sample = self.transform(sample)
-            out = sample.unsqueeze(0) if i==0 else torch.cat((out, sample.unsqueeze(0)), dim=0)
+        try:
+            # Burst video into /dev/shm/. Be careful about running out of memory there. /dev/shm/ only has 16GB memory (should be way more than enough)
+            burst_path = '/dev/shm/face_detector_exp/'+vid_file[:-4]
+            burst_video_into_frames(vid_path=vid_path, burst_dir=burst_path, frame_rate=self.frame_rate)
+            img_paths = get_all_image_paths(burst_path)
 
-        shutil.rmtree(burst_path, ignore_errors=True)
-        box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
-        landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
+            # Sample num_frames samples from each video and concat them in batch_size dimension.
+            for i in range(self.num_frames):
+                path = img_paths[i]
+                sample = self.loader(path)
+                if i==0:
+                    width, height = sample.size
+                if self.transform is not None:
+                    sample = self.transform(sample)
+                out = sample.unsqueeze(0) if i==0 else torch.cat((out, sample.unsqueeze(0)), dim=0)
 
-        priorbox = PriorBox(self.cfg, image_size=(height, width))
-        priors = priorbox.forward()
-        
-        return out, box_scale, landms_scale, priors, img_paths[:self.num_frames], width, height
+            shutil.rmtree(burst_path, ignore_errors=True)
+            box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
+            landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
+
+            priorbox = PriorBox(self.cfg, image_size=(height, width))
+            priors = priorbox.forward()
+
+            return out, box_scale, landms_scale, priors, img_paths[:self.num_frames], width, height
+        except:
+            return None, None, None, None, img_paths[:self.num_frames], None, None
 
     def __len__(self):
         return len(self.video_paths)
