@@ -2,6 +2,7 @@ from torchvision.datasets.vision import VisionDataset
 import os
 import torch
 import sh, shutil
+import cv2
 from .detect_utils import PriorBox
 
 def pil_loader(path):
@@ -11,25 +12,38 @@ def pil_loader(path):
         img = Image.open(f)
         return img.convert('RGB')
 
-def burst_video_into_frames(vid_path, burst_dir, frame_rate):
+def burst_video_into_frames(vid_path, burst_dir, frame_rate, type='opencv'):
     """
     - To burst frames in a directory in shared memory.
     - Returns path to directory containing frames for the specific video
     """
     os.makedirs(burst_dir, exist_ok=True)
     target_mask = os.path.join(burst_dir, '%04d.jpg')
-    try:
-        ffmpeg_args = [
-            '-i', vid_path,
-            '-q:v', str(1),
-            '-f', 'image2',
-            '-r', frame_rate,
-            target_mask,
-        ]
-        sh.ffmpeg(*ffmpeg_args)
-    except Exception as e:
-        print(repr(e))
-        return 1
+    if type == 'ffmpeg':
+        try:
+            ffmpeg_args = [
+                '-i', vid_path,
+                '-q:v', str(1),
+                '-f', 'image2',
+                '-r', frame_rate,
+                target_mask,
+            ]
+            sh.ffmpeg(*ffmpeg_args)
+        except Exception as e:
+            print(repr(e))
+            return 1
+    else:
+        try:
+            vidcap = cv2.VideoCapture(vid_path)
+            success, image = vidcap.read()
+            count = 0
+            while success:
+                cv2.imwrite(target_mask % count, image)  # save frame as JPEG file
+                success, image = vidcap.read()
+                count += 1
+        except Exception as e:
+            print(repr(e))
+            return 1
     return 0
 
 def accimage_loader(path):
