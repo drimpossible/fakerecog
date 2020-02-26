@@ -31,7 +31,7 @@ class InferenceForward():
             videoid = []
             for i, inputs in enumerate(loader):
                 try:
-                    images, box_scale, landms_scale, priors, paths, width, height = inputs
+                    images, box_scale, landms_scale, priors, vid_id, width, height = inputs
                     images, box_scale, landms_scale, priors = images.squeeze(0).cuda(non_blocking=True), box_scale.cuda(non_blocking=True), landms_scale.cuda(non_blocking=True), priors.cuda(non_blocking=True)
                     im = images.clone()
                     # Normalization for detection model
@@ -78,7 +78,7 @@ class InferenceForward():
                     allprobs.append(maxprob)
                 except:
                     allprobs.append(0.5)
-                videoid.append(paths[0][0].split('/')[-2]+'.mp4')
+                videoid.append(vid_id)
         assert(len(allprobs)==len(videoid) and len(allprobs)==len(loader))
         return allprobs, videoid
 
