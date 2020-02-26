@@ -116,29 +116,30 @@ class InferenceLoader(VisionDataset):
         """
         vid_path = self.video_paths[index]
         vid_file = vid_path.split('/')[-1]
-        #try:
-        v_cap = FileVideoStream(vid_path).start()
-        v_len = int(v_cap.stream.get(cv2.CAP_PROP_FRAME_COUNT))
-        frames = []
-        for i in range(v_len):
-            if i % 5 == 0:
-                frame = v_cap.read()
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                if i==0:
-                    height, width, _ = frame.shape
-                if self.transform is not None:
-                    frame = self.transform(frame)
-                frames.append(frame)
-        out = torch.stack(frames[:self.num_frames])
-        box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
-        landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
+        try:
+            v_cap = FileVideoStream(vid_path).start()
+            v_len = int(v_cap.stream.get(cv2.CAP_PROP_FRAME_COUNT))
+            frames = []
+            for i in range(v_len):
+                if i % 5 == 0:
+                    frame = v_cap.read()
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    if i==0:
+                        height, width, _ = frame.shape
+                    if self.transform is not None:
+                        frame = self.transform(frame)
+                    frames.append(frame)
+            out = torch.stack(frames[:self.num_frames])
+            box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
+            landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
 
-        priorbox = PriorBox(self.cfg, image_size=(height, width))
-        priors = priorbox.forward()
+            priorbox = PriorBox(self.cfg, image_size=(height, width))
+            priors = priorbox.forward()
 
-        return out, box_scale, landms_scale, priors, vid_file, width, height
-        #except:
-        #    return None, None, None, None, vid_file, None, None
+            return out, box_scale, landms_scale, priors, vid_file, width, height
+        except:
+            priors = PriorBox(self.cfg, image_size=(height, width))
+            return torch.zeros_like(out), torch.zeros_like(box_scale), torch.zeros_like(landms_scale), priors, vid_file, 1000, 1000
 
     def __len__(self):
         return len(self.video_paths)
