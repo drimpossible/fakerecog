@@ -56,4 +56,4 @@ print('Time taken for processing 400 videos: ',(end-start))
 submission = open('submission.csv', mode='w')
 submission = csv.writer(submission, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 for (vid, p) in zip(videoid, allprobs):
-    submission.writerow([vid, p])
+    submission.writerow([vid[0], p])
