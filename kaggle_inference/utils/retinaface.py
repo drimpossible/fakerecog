@@ -180,7 +180,7 @@ class LandmarkHead(nn.Module):
         return out.view(out.shape[0], -1, 10)
 
 class RetinaFace(nn.Module):
-    def __init__(self, cfg = None, path='/kaggle/input/helpmodule/', phase='train'):
+    def __init__(self, cfg = None, path='/kaggle/input/codepackage/ckpt', phase='train'):
         """
         :param cfg:  Network related settings.
         :param phase: train or test.

@@ -2,6 +2,7 @@ from torchvision.datasets.vision import VisionDataset
 import os
 import torch
 import sh, shutil
+import cv2
 from .detect_utils import PriorBox
 
 def pil_loader(path):
@@ -11,25 +12,38 @@ def pil_loader(path):
         img = Image.open(f)
         return img.convert('RGB')
 
-def burst_video_into_frames(vid_path, burst_dir, frame_rate):
+def burst_video_into_frames(vid_path, burst_dir, frame_rate, type='opencv'):
     """
     - To burst frames in a directory in shared memory.
     - Returns path to directory containing frames for the specific video
     """
     os.makedirs(burst_dir, exist_ok=True)
     target_mask = os.path.join(burst_dir, '%04d.jpg')
-    try:
-        ffmpeg_args = [
-            '-i', vid_path,
-            '-q:v', str(1),
-            '-f', 'image2',
-            '-r', frame_rate,
-            target_mask,
-        ]
-        sh.ffmpeg(*ffmpeg_args)
-    except Exception as e:
-        print(repr(e))
-        return 1
+    if type == 'ffmpeg':
+        try:
+            ffmpeg_args = [
+                '-i', vid_path,
+                '-q:v', str(1),
+                '-f', 'image2',
+                '-r', frame_rate,
+                target_mask,
+            ]
+            sh.ffmpeg(*ffmpeg_args)
+        except Exception as e:
+            print(repr(e))
+            return 1
+    else:
+        try:
+            vidcap = cv2.VideoCapture(vid_path)
+            success, image = vidcap.read()
+            count = 0
+            while success:
+                cv2.imwrite(target_mask % count, image)  # save frame as JPEG file
+                success, image = vidcap.read()
+                count += 1
+        except Exception as e:
+            print(repr(e))
+            return 1
     return 0
 
 def accimage_loader(path):
@@ -101,30 +115,32 @@ class InferenceLoader(VisionDataset):
         """
         vid_path = self.video_paths[index]
         vid_file = vid_path.split('/')[-1]
-        
-        # Burst video into /dev/shm/. Be careful about running out of memory there. /dev/shm/ only has 16GB memory (should be way more than enough)
-        burst_path = '/dev/shm/face_detector_exp/'+vid_file[:-4]
-        burst_video_into_frames(vid_path=vid_path, burst_dir=burst_path, frame_rate=self.frame_rate)
-        img_paths = get_all_image_paths(burst_path)
-        
-        # Sample num_frames samples from each video and concat them in batch_size dimension.
-        for i in range(self.num_frames):
-            path = img_paths[i]
-            sample = self.loader(path)
-            if i==0:
-                width, height = sample.size
-            if self.transform is not None:
-                sample = self.transform(sample)
-            out = sample.unsqueeze(0) if i==0 else torch.cat((out, sample.unsqueeze(0)), dim=0)
+        try:
+            # Burst video into /dev/shm/. Be careful about running out of memory there. /dev/shm/ only has 16GB memory (should be way more than enough)
+            burst_path = '/dev/shm/face_detector_exp/'+vid_file[:-4]
+            burst_video_into_frames(vid_path=vid_path, burst_dir=burst_path, frame_rate=self.frame_rate)
+            img_paths = get_all_image_paths(burst_path)
 
-        shutil.rmtree(burst_path, ignore_errors=True)
-        box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
-        landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
+            # Sample num_frames samples from each video and concat them in batch_size dimension.
+            for i in range(self.num_frames):
+                path = img_paths[i]
+                sample = self.loader(path)
+                if i==0:
+                    width, height = sample.size
+                if self.transform is not None:
+                    sample = self.transform(sample)
+                out = sample.unsqueeze(0) if i==0 else torch.cat((out, sample.unsqueeze(0)), dim=0)
 
-        priorbox = PriorBox(self.cfg, image_size=(height, width))
-        priors = priorbox.forward()
-        
-        return out, box_scale, landms_scale, priors, img_paths[:self.num_frames], width, height
+            shutil.rmtree(burst_path, ignore_errors=True)
+            box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
+            landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
+
+            priorbox = PriorBox(self.cfg, image_size=(height, width))
+            priors = priorbox.forward()
+
+            return out, box_scale, landms_scale, priors, img_paths[:self.num_frames], width, height
+        except:
+            return None, None, None, None, img_paths[:self.num_frames], None, None
 
     def __len__(self):
         return len(self.video_paths)
