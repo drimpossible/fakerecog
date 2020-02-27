@@ -12,18 +12,18 @@ from torchvision import transforms
 from utils import burst, forward, opts, detect_utils
 import csv
 
-
-   
 class Opts(object):
     def __init__(self):
         self.model = 'Mobilenet0.25'
         self.loader_type = 'burst'
         self.batch_size = 32
         self.nms_threshold = 0.4
+        #self.lib_dir = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt'
         self.lib_dir = '/kaggle/input/codepackage/ckpt'
         self.frame_rate = 12
         self.num_frames = 32
         self.scale = 1.2
+        #self.ckpt = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/ckpt.pth.tar'
         self.ckpt = '/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         self.confidence_threshold = 0.75
         self.resize = 1.
@@ -35,7 +35,8 @@ opt = Opts()
 assert(torch.cuda.is_available()), 'Error: No CUDA-enabled device found!'
 
 test_dir = '/kaggle/input/deepfake-detection-challenge/test_videos/'
-
+#test_dir = '/bigssd/joanna/test_dfdc'
+   
 print("PyTorch version:", torch.__version__)
 print("CUDA version:", torch.version.cuda)
 print("cuDNN version:", torch.backends.cudnn.version())
