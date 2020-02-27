@@ -3,65 +3,8 @@ import os
 import torch
 import sh, shutil
 import cv2
-from imutils.video import FileVideoStream
+import numpy as np
 from .detect_utils import PriorBox
-
-def pil_loader(path):
-    from PIL import Image
-    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
-    with open(path, 'rb') as f:
-        img = Image.open(f)
-        return img.convert('RGB')
-
-def burst_video_into_frames(vid_path, burst_dir, frame_rate, type='opencv'):
-    """
-    - To burst frames in a directory in shared memory.
-    - Returns path to directory containing frames for the specific video
-    """
-    os.makedirs(burst_dir, exist_ok=True)
-    target_mask = os.path.join(burst_dir, '%04d.jpg')
-    if type == 'ffmpeg':
-        try:
-            ffmpeg_args = [
-                '-i', vid_path,
-                '-q:v', str(1),
-                '-f', 'image2',
-                '-r', frame_rate,
-                target_mask,
-            ]
-            sh.ffmpeg(*ffmpeg_args)
-        except Exception as e:
-            print(repr(e))
-            return 1
-    else:
-        try:
-            vidcap = cv2.VideoCapture(vid_path)
-            success, image = vidcap.read()
-            count = 0
-            while success:
-                cv2.imwrite(target_mask % count, image)  # save frame as JPEG file
-                success, image = vidcap.read()
-                count += 1
-        except Exception as e:
-            print(repr(e))
-            return 1
-    return 0
-
-def accimage_loader(path):
-    import accimage
-    try:
-        return accimage.Image(path)
-    except IOError:
-        # Potentially a decoding problem, fall back to PIL.Image
-        return pil_loader(path)
-
-
-def default_loader(path):
-    from torchvision import get_image_backend
-    if get_image_backend() == 'accimage':
-        return accimage_loader(path)
-    else:
-        return pil_loader(path)
 
 
 def get_all_video_paths(root_dir):
@@ -97,9 +40,8 @@ class InferenceLoader(VisionDataset):
         image_paths (list): List of absolute image_paths
     """
 
-    def __init__(self, cfg, root, loader=None, transform=None, frame_rate=12, num_frames=16):
-        super(InferenceLoader, self).__init__(root, transform=transform)
-        self.loader = default_loader
+    def __init__(self, cfg, root, frame_rate=12, num_frames=16):
+        super(InferenceLoader, self).__init__(root)
         self.video_paths = get_all_video_paths(self.root)
         if len(self.video_paths) == 0:
             raise (RuntimeError("Found 0 files in subfolders of: " + self.root + "\n"))
@@ -115,31 +57,45 @@ class InferenceLoader(VisionDataset):
             tuple: (image_path, image).
         """
         vid_path = self.video_paths[index]
+        print('Processing video: '+vid_path)
         vid_file = vid_path.split('/')[-1]
         try:
-            v_cap = FileVideoStream(vid_path).start()
-            v_len = int(v_cap.stream.get(cv2.CAP_PROP_FRAME_COUNT))
-            frames = []
-            for i in range(v_len):
-                if i % 5 == 0:
-                    frame = v_cap.read()
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    if i==0:
+            capture = cv2.VideoCapture(vid_path)
+            frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            i = 0
+            for frame_idx in range(int(frame_count)):
+                # Get the next frame, but don't decode if we're not using it.
+                ret = capture.grab()
+                if not ret: 
+                    print("Error grabbing frame %d from movie %s" % (frame_idx, path))
+
+                if frame_idx % 5 == 0:
+                    ret, frame = capture.retrieve()
+                    if not ret or frame is None:
+                        print("Error retrieving frame %d from movie %s" % (frame_idx, path))
+                    else:
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame = np.float32(frame)
                         height, width, _ = frame.shape
-                    if self.transform is not None:
-                        frame = self.transform(frame)
-                    frames.append(frame)
-            out = torch.stack(frames[:self.num_frames])
+                        frame = frame.transpose(2, 0, 1)
+                        frame = torch.from_numpy(frame).unsqueeze(0)
+                        frames = frame if i==0 else torch.cat((frames,frame),dim=0)
+                        i += 1
+                        if i >= self.num_frames:
+                            break
+
+            capture.release()
             box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
             landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
 
             priorbox = PriorBox(self.cfg, image_size=(height, width))
             priors = priorbox.forward()
 
-            return out, box_scale, landms_scale, priors, vid_file, width, height
+            return frames, box_scale, landms_scale, priors, vid_file, width, height
         except:
-            priors = PriorBox(self.cfg, image_size=(height, width))
-            return torch.zeros_like(out), torch.zeros_like(box_scale), torch.zeros_like(landms_scale), priors, vid_file, 1000, 1000
+            print("Error grabbing frames from video %s" % (vid_path))
+            return torch.Tensor([0]), torch.Tensor([0]), torch.Tensor([0]), torch.Tensor([0]), vid_file, 1000, 1000
 
     def __len__(self):
         return len(self.video_paths)
