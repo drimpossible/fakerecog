@@ -104,7 +104,7 @@ class ImageDataset(Dataset):
 class ImageValidation(ImageDataset):
 
     def __init__(self, json_data, split='validation'):
-        self.root_dir = json_data
+        self.json_data = json.load(open(json_data, 'r'))
         self.split = split
         self.get_file_list()
         self.transforms = {
@@ -113,7 +113,7 @@ class ImageValidation(ImageDataset):
                 transforms.ToTensor(),
                 transforms.Normalize([0.5] * 3, [0.5] * 3)
             ]),
-            'val': transforms.Compose([
+            'validation': transforms.Compose([
                 transforms.Resize((299, 299)),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5] * 3, [0.5] * 3)
@@ -124,6 +124,7 @@ class ImageValidation(ImageDataset):
                 transforms.Normalize([0.5] * 3, [0.5] * 3)
             ]),
         }
+        self.int_label = lambda x: 1 if x == 'FAKE' else 0
 
     def get_file_list(self):
         """
@@ -136,7 +137,7 @@ class ImageValidation(ImageDataset):
             try:
                 if listdata['split'] == self.split:
                     file_list.append(listdata['frames_path'])
-                    labels.append([listdata['label']])
+                    labels.append(listdata['label'])
             except Exception as e:
                 print(str(e))
 
@@ -148,11 +149,17 @@ class ImageValidation(ImageDataset):
         return len(self.file_list)
 
     def __getitem__(self, item):
-        frames = glob.glob(self.file_list[item] + '/frames/*.jpg')
-        frames = sorted(frames)[::2][:32]
-        label = self.labels[item]
-        images = []
-        for f in frames:
-            images.append(self.transforms[self.split](pil_image.open(f)))
-        label = self.int_label(label)
-        return torch.stack(images), torch.stack([label] *len(images))
+        try:
+            frames = glob.glob(self.file_list[item] + '/frames/*.jpg')
+            frames = sorted(frames)[::2][:32]
+            label = self.labels[item]
+            images = []
+            for f in frames:
+                images.append(self.transforms[self.split](pil_image.open(f)))
+            label = self.int_label(label)
+            return torch.stack(images), [label]*len(images)
+        except:
+            print(self.file_list[item])
+            images = torch.zeros((32, 3, 299, 299))
+            label = 0
+            return images, [label]*32

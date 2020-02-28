@@ -119,8 +119,6 @@ def main_worker(gpu, ngpus_per_node, args):
     print("=> creating model '{}'".format(args.arch))
     model, image_size, *_ = model_selection(args.arch, num_out_classes=2, pretrained=args.pretrained)
 
-    if args.distributed:
-
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
@@ -170,11 +168,6 @@ def main_worker(gpu, ngpus_per_node, args):
     train_dataset = datasets.ImageDataset(json_data=args.metadata)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
@@ -192,7 +185,7 @@ def main_worker(gpu, ngpus_per_node, args):
             eval_dataset,
             batch_size=1, shuffle=False,
             num_workers=args.workers, pin_memory=True)
-        validate(eval_loader, model, criterion, args)
+        evaluate(eval_loader, model, criterion, args)
         return
 
     # training, start a logger
@@ -202,8 +195,6 @@ def main_worker(gpu, ngpus_per_node, args):
     tb_logger = Logger(tb_logdir)
 
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
@@ -321,6 +312,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
                 progress.display(i)
 
         print(' * Acc@1 {top1.avg:.3f} '.format(top1=top1))
+        print(' * Loss@1 {losses.avg:.4f} '.format(losses=losses))
 
     if epoch is not None and tb_logger is not None:
         logs = OrderedDict()
@@ -334,7 +326,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
 
     return top1.avg
 
-def eval(val_loader, model, criterion, args):
+def evaluate(val_loader, model, criterion, args):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', '')
     top1 = AverageMeter('Acc@1', ':6.2f')
@@ -351,18 +343,16 @@ def eval(val_loader, model, criterion, args):
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
+            target = torch.Tensor(target).int()
             target = target.cuda(args.gpu, non_blocking=True)
-
             # compute output
-            output = model(images)
+            output = model(images.squeeze())
             output = output.mean(0)
-            target = target[0]
-            loss = criterion(output, target)
-
+            loss = criterion(output.view(1,2), target[0].view(1,).long())
+           
             # measure accuracy and record loss
-            acc1 = accuracy(output, target, topk=(1,))
-            # import pdb
-            # pdb.set_trace()
+            #acc1 = accuracy(output, target, topk=(1,))
+            acc1 = accuracy(output.view(1,2), target[0].view(1,), topk=(1,))
             losses.update(loss.item(), images.size(0))
             top1.update(acc1[0][0], images.size(0))
 
@@ -374,7 +364,7 @@ def eval(val_loader, model, criterion, args):
                 progress.display(i)
 
         print(' * Acc@1 {top1.avg:.3f} '.format(top1=top1))
-        print(' * Loss {losses.avg:} '.format(top1=losses))
+        print(' * Loss {losses.avg:} '.format(losses=losses))
 
 
 def save_checkpoint(state, is_best, filename='checkpoint'):
