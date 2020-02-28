@@ -9,6 +9,7 @@ from torchvision import transforms
 import itertools
 import random
 import json
+import torch
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 
@@ -100,3 +101,59 @@ class ImageDataset(Dataset):
         return len(self.file_list)
 
 
+class ImageValidation(ImageDataset):
+
+    def __init__(self, data_path, split='val', num_eval=100):
+        self.root_dir = data_path
+        self.split = split
+        self.num_eval = num_eval
+        self.get_file_list()
+        self.transforms = {
+            'train': transforms.Compose([
+                transforms.Resize((299, 299)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5] * 3, [0.5] * 3)
+            ]),
+            'val': transforms.Compose([
+                transforms.Resize((299, 299)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5] * 3, [0.5] * 3)
+            ]),
+            'test': transforms.Compose([
+                transforms.Resize((299, 299)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5] * 3, [0.5] * 3)
+            ]),
+        }
+
+    def get_file_list(self):
+        """
+        This function creates 3 lists: vid_names, labels and frame_cnts
+        :return:
+        """
+        labels = []
+        file_list = []
+        for listdata in self.json_data:
+            try:
+                if listdata['split'] == self.split:
+                    file_list.append(listdata['frames_path'])
+                    labels.append([listdata['label']])
+            except Exception as e:
+                print(str(e))
+
+        self.file_list = file_list
+        self.labels = labels
+
+
+    def __len__(self):
+        return len(self.file_list)
+
+    def __getitem__(self, item):
+        frames = glob.glob(self.file_list[item] + '/frames/*.jpg')
+        frames = sorted(frames)[::2][:32]
+        label = self.labels[item]
+        images = []
+        for f in frames:
+            images.append(self.transforms[self.split](pil_image.open(f)))
+        label = self.int_label(label)
+        return torch.stack(images), torch.stack([label] *len(images))
