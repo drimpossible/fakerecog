@@ -21,9 +21,15 @@ class ImageDataset(Dataset):
         self.json_data = json.load(open(json_data, 'r'))
         self.split = split
         self.get_file_list()
-        self.transforms = xception_default_data_transforms = {
+        self.transforms  = {
             'train': transforms.Compose([
                 transforms.Resize((299, 299)),
+                transforms.RandomChoice([
+                    transforms.RandomResizedCrop(299, ratio=(0.9, 1.1),scale=(0.8, 1.1)),
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.ColorJitter(0.5, contrast=0.8, saturation=0.5),
+                    transforms.RandomRotation(5),
+                ]),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5] * 3, [0.5] * 3)
             ]),
