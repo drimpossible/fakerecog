@@ -13,26 +13,25 @@ class InferenceForward():
         torch.set_grad_enabled(False)
         torch.backends.cudnn.benchmark = True
         self.opt = opt
-        self.det_mean = torch.Tensor([104.0/256.0, 117.0/256.0, 123.0/256.0]).cuda()
-        self.det_std=torch.Tensor([1/256.0, 1.0/256.0, 1.0/256.0]).cuda()
+        self.det_mean = torch.Tensor([104.0, 117.0, 123.0]).cuda()
+        self.det_std=torch.Tensor([1, 1.0, 1.0]).cuda()
         # # Insert recognition network mean and var here, and load recognition net into self.recnet
-        self.rec_mean = torch.Tensor([0.5, 0.5, 0.5]).cuda()
-        self.rec_std =  torch.Tensor([0.5, 0.5, 0.5]).cuda()
+        self.rec_mean = torch.Tensor([0.5*256, 0.5*256, 0.5*256]).cuda()
+        self.rec_std =  torch.Tensor([0.5*256, 0.5*256, 0.5*256]).cuda()
         self.cfg = cfg_mnet if opt.model == "Mobilenet0.25" else cfg_res50
         self.detnet = load_model(self.cfg, opt.lib_dir)
         model, image_size, *_ = model_selection('xception_fulltraining', num_out_classes=2, pretrained=opt.ckpt)
-        self.recnet = model.cuda()
+        self.recnet = model.cuda().eval()
 
 
     def detect(self, loader):
         with torch.no_grad():
             start = time.time()
-            allprobs = []
-            videoid = []
+            video_pred = {}
             for i, inputs in enumerate(loader):
+                images, box_scale, landms_scale, priors, paths, width, height = inputs
                 try:
-                    images, box_scale, landms_scale, priors, paths, width, height = inputs
-                    images, box_scale, landms_scale, priors = images.squeeze(0).cuda(non_blocking=True), box_scale.cuda(non_blocking=True), landms_scale.cuda(non_blocking=True), priors.cuda(non_blocking=True)
+                    images, box_scale, landms_scale, priors = images.squeeze(0).float().cuda(non_blocking=True), box_scale.cuda(non_blocking=True), landms_scale.cuda(non_blocking=True), priors.cuda(non_blocking=True)
                     im = images.clone()
                     # Normalization for detection model
                     im.sub_(self.det_mean[None, :, None, None]).div_(self.det_std[None, :, None, None])
@@ -75,11 +74,15 @@ class InferenceForward():
                         out = float(prob.mean(0)[1]) # Take the probability of being fake here, minor adjustment.
                         if maxprob < out:
                             maxprob = out
-                    allprobs.append(maxprob)
+                    maxprob = min(maxprob, 0.95)
+                    maxprob = max(maxprob, 0.05)
+                    print(paths[0])
+                    video_pred[paths[0]]=maxprob
                 except:
-                    allprobs.append(0.5)
-                videoid.append(paths[0][0].split('/')[-2]+'.mp4')    
-        return allprobs, videoid
+                    print(paths[0])
+                    video_pred[paths[0]]=0.5
+
+        return video_pred
 
 
 
