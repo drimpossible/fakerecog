@@ -103,10 +103,9 @@ class ImageDataset(Dataset):
 
 class ImageValidation(ImageDataset):
 
-    def __init__(self, data_path, split='val', num_eval=100):
-        self.root_dir = data_path
+    def __init__(self, json_data, split='validation'):
+        self.root_dir = json_data
         self.split = split
-        self.num_eval = num_eval
         self.get_file_list()
         self.transforms = {
             'train': transforms.Compose([
