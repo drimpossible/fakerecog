@@ -205,7 +205,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dataset = datasets.FFImageDataset(json_data=args.metadata)
+    train_dataset = datasets.ImageDataset(json_data=args.metadata)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
     if args.distributed:
@@ -217,7 +217,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
-    val_dataset = datasets.FFImageDataset(json_data=args.metadata, split='validation')
+    val_dataset = datasets.ImageDataset(json_data=args.metadata, split='validation')
     print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
