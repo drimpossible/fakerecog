@@ -82,7 +82,8 @@ parser.add_argument('--log_freq', '-l', default=10, type=int,
 parser.add_argument('--exp', type=str)
 parser.add_argument('--metadata', type=str,
                     help='path to metadata for dataset')
-
+parser.add_argument('--temp', default=1, type=int,
+                    help='temperature')
 best_acc1 = 0
 
 
@@ -327,6 +328,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
     return top1.avg
 
 def evaluate(val_loader, model, criterion, args):
+    print('\t temperature {}'.format(args.temp))
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', '')
     top1 = AverageMeter('Acc@1', ':6.2f')
@@ -347,6 +349,7 @@ def evaluate(val_loader, model, criterion, args):
             target = target.cuda(args.gpu, non_blocking=True)
             # compute output
             output = model(images.squeeze())
+            output *= args.temp
             output = output.mean(0)
             loss = criterion(output.view(1,2), target[0].view(1,).long())
            
