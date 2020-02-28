@@ -82,7 +82,7 @@ parser.add_argument('--log_freq', '-l', default=10, type=int,
 parser.add_argument('--exp', type=str)
 parser.add_argument('--metadata', type=str,
                     help='path to metadata for dataset')
-parser.add_argument('--temp', default=1, type=int,
+parser.add_argument('--temp', default=1, type=float,
                     help='temperature')
 best_acc1 = 0
 
@@ -349,7 +349,7 @@ def evaluate(val_loader, model, criterion, args):
             target = target.cuda(args.gpu, non_blocking=True)
             # compute output
             output = model(images.squeeze())
-            output *= args.temp
+            output /= args.temp
             output = output.mean(0)
             loss = criterion(output.view(1,2), target[0].view(1,).long())
            
