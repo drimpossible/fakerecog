@@ -107,6 +107,7 @@ class ImageDataset(Dataset):
         return len(self.file_list)
 
 
+<<<<<<< HEAD
 class ImageValidation(ImageDataset):
 
     def __init__(self, json_data, split='validation'):
@@ -170,3 +171,5 @@ class ImageValidation(ImageDataset):
             images = torch.zeros((32, 3, 299, 299))
             label = 0
             return images, [label]*32
+=======
+>>>>>>> 8a4f3a5... change name and cleanup

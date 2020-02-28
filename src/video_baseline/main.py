@@ -65,7 +65,20 @@ parser.add_argument('--frames_duration', type=int,
 parser.add_argument('--sample_rate', type=int,
                     help='fps')
 parser.add_argument('--exp', type=str)
-parser.add_argument('--temp', type=float)
+parser.add_argument('--temp', default=1, type=float)
+parser.add_argument('--multiprocessing-distributed', action='store_true',    
+                    help='Use multi-processing distributed training to launch '    
+                         'N processes per node, which has N GPUs. This is the '    
+                         'fastest way to use PyTorch for either single node or '    
+                         'multi node data parallel training')
+parser.add_argument('--world-size', default=-1, type=int,    
+                    help='number of nodes for distributed training')    
+parser.add_argument('--rank', default=-1, type=int,    
+                    help='node rank for distributed training')    
+parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,    
+                    help='url used to set up distributed training')    
+parser.add_argument('--dist-backend', default='nccl', type=str,    
+                    help='distributed backend')
 best_acc1 = 0
 
 
@@ -82,9 +95,22 @@ def main():
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
 
-    ngpus_per_node = torch.cuda.device_count()
-    main_worker(args.gpu, ngpus_per_node, args)
+    if args.dist_url == "env://" and args.world_size == -1:
+        args.world_size = int(os.environ["WORLD_SIZE"])
 
+    args.distributed = args.world_size > 1 or args.multiprocessing_distributed
+
+    ngpus_per_node = torch.cuda.device_count()
+    if args.multiprocessing_distributed:       
+        # Since we have ngpus_per_node processes per node, the total world_size    
+        # needs to be adjusted accordingly    
+        args.world_size = ngpus_per_node * args.world_size    
+        # Use torch.multiprocessing.spawn to launch distributed processes: the    
+        # main_worker process function    
+        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))    
+    else:    
+        # Simply call main_worker function    
+        main_worker(args.gpu, ngpus_per_node, args)    
 
 def main_worker(gpu, ngpus_per_node, args):
     global best_acc1
@@ -92,14 +118,38 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
-
+    if args.distributed:    
+        if args.dist_url == "env://" and args.rank == -1:    
+            args.rank = int(os.environ["RANK"])    
+        if args.multiprocessing_distributed:    
+            # For multiprocessing distributed training, rank needs to be the    
+            # global rank among all the processes    
+            args.rank = args.rank * ngpus_per_node + gpu    
+        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,    
+                                world_size=args.world_size, rank=args.rank)
     # create model
     model = Model(num_classes=2, extract_features=False, loss_type='softmax')
-
-    if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
-    model.cuda()
+    if args.distributed:      
+        # For multiprocessing distributed, DistributedDataParallel constructor    
+        # should always set the single device scope, otherwise,    
+        # DistributedDataParallel will use all available devices.    
+        if args.gpu is not None:    
+            torch.cuda.set_device(args.gpu)    
+            model.cuda(args.gpu)    
+            # When using a single GPU per process and per    
+            # DistributedDataParallel, we need to divide the batch size    
+            # ourselves based on the total number of GPUs we have    
+            args.batch_size = int(args.batch_size / ngpus_per_node)    
+            args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)    
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])    
+            # DistributedDataParallel will divide and allocate batch_size to all    
+            # available GPUs if device_ids are not set    
+            model = torch.nn.parallel.DistributedDataParallel(model)    
+        elif args.gpu is not None:
+            torch.cuda.set_device(args.gpu)
+            model = model.cuda(args.gpu)
+    else:
+        model = torch.nn.DataParallel(model).cuda()
     # define loss function (criterion) and optimizer
     weights = [1.0, 1.0]
     class_weights = torch.FloatTensor(weights).cuda(args.gpu)
@@ -186,7 +236,6 @@ def main_worker(gpu, ngpus_per_node, args):
                 #and args.rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
-                'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
@@ -273,7 +322,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
             target = target.cuda()
             # compute output
             output = model(images)
-            output /= args.temp
+            #output /= args.temp
             loss = criterion(output, target)
             # measure accuracy and record loss
             acc1 = accuracy(output, target, topk=(1,))
