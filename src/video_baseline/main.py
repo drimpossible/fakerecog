@@ -83,7 +83,7 @@ parser.add_argument('--metadata', type=str,
                     help='path to metadata for dataset')
 parser.add_argument('--frames_duration', type=int,
                     help='number of frames')
-parser.add_argument('--sample_rate', type=str,
+parser.add_argument('--sample_rate', type=int,
                     help='fps')
 parser.add_argument('--exp', type=str)
 
@@ -208,7 +208,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # Data loading code
     train_dataset = datasets.VideoFolder(file_input=args.metadata,
                                          frames_duration=args.frames_duration,
-                                         sample_rate=1)
+                                         sample_rate=args.sample_rate)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
     if args.distributed:
@@ -222,7 +222,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     val_dataset = datasets.VideoFolder(file_input=args.metadata,
                                        frames_duration=args.frames_duration,
-                                       sample_rate=1,
+                                       sample_rate=args.sample_rate,
                                        split='validation')
     print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
@@ -263,7 +263,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best, filename=args.exp)
+            }, is_best, filename='epoch{}'.format(epoch+1) + args.exp)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None):
