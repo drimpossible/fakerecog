@@ -10,15 +10,15 @@ from .detect_utils import PriorBox
 def get_all_video_paths(root_dir):
     video_paths = []
     for (dirpath, _, filenames) in os.walk(root_dir, followlinks=True):
-        video_paths += [dirpath+'/'+f for f in filenames if (f.endswith('.mp4') or f.endswith('.avi'))]
+        video_paths += [dirpath + '/' + f for f in filenames if (f.endswith('.mp4') or f.endswith('.avi'))]
     return video_paths
-
 
 
 def get_all_image_paths(root_dir):
     image_paths = []
     for (dirpath, _, filenames) in os.walk(root_dir, followlinks=True):
-        image_paths += [dirpath+'/'+f for f in filenames if (f.endswith('.jpg') or f.endswith('.png') or f.endswith('.jpeg'))]
+        image_paths += [dirpath + '/' + f for f in filenames if
+                        (f.endswith('.jpg') or f.endswith('.png') or f.endswith('.jpeg'))]
     return image_paths
 
 
@@ -48,7 +48,7 @@ class InferenceLoader(VisionDataset):
         self.frame_rate = frame_rate
         self.num_frames = num_frames
         self.cfg = cfg
-        
+
     def __getitem__(self, index):
         """
         Args:
@@ -57,7 +57,6 @@ class InferenceLoader(VisionDataset):
             tuple: (image_path, image).
         """
         vid_path = self.video_paths[index]
-        print('Processing video: '+vid_path)
         vid_file = vid_path.split('/')[-1]
         try:
             capture = cv2.VideoCapture(vid_path)
@@ -67,7 +66,7 @@ class InferenceLoader(VisionDataset):
             for frame_idx in range(int(frame_count)):
                 # Get the next frame, but don't decode if we're not using it.
                 ret = capture.grab()
-                if not ret: 
+                if not ret:
                     print("Error grabbing frame %d from movie %s" % (frame_idx, path))
 
                 if frame_idx % 5 == 0:
@@ -76,18 +75,18 @@ class InferenceLoader(VisionDataset):
                         print("Error retrieving frame %d from movie %s" % (frame_idx, path))
                     else:
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        frame = np.float32(frame)
                         height, width, _ = frame.shape
                         frame = frame.transpose(2, 0, 1)
                         frame = torch.from_numpy(frame).unsqueeze(0)
-                        frames = frame if i==0 else torch.cat((frames,frame),dim=0)
+                        frames = frame if i == 0 else torch.cat((frames, frame), dim=0)
                         i += 1
                         if i >= self.num_frames:
                             break
 
             capture.release()
             box_scale = torch.Tensor([width, height, width, height]).unsqueeze(0).unsqueeze(0)
-            landms_scale = torch.Tensor([width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
+            landms_scale = torch.Tensor(
+                [width, height, width, height, width, height, width, height, width, height]).unsqueeze(0).unsqueeze(0)
 
             priorbox = PriorBox(self.cfg, image_size=(height, width))
             priors = priorbox.forward()

@@ -74,8 +74,6 @@ class VideoFolder(torch.utils.data.Dataset):
         self.transforms += [
             gtransforms.ToTensor(),
             gtransforms.GroupNormalize(self.img_mean, self.img_std),
-            # TODO: Canceled the Loop Padding
-            # gtransforms.LoopPad(self.in_duration),
         ]
         self.transforms = Compose(self.transforms)
         self.prepare_data()
@@ -102,8 +100,6 @@ class VideoFolder(torch.utils.data.Dataset):
                         folder_paths.append(frames_path)
             except Exception as e:
                 print(str(e))
-
-        print('FGGHJ', len(folder_paths))
         self.folder_paths = folder_paths
         self.vid_names = vid_names
         self.labels = labels
@@ -117,8 +113,6 @@ class VideoFolder(torch.utils.data.Dataset):
         :param frame_idx: index
         :return:
         """
-        # return Image.open(
-        #     join(os.path.dirname(self.data_root), 'frames', vid_name, '%04d.jpg' % (frame_idx + 1))).convert('RGB')
         return Image.open(frame_path).convert('RGB')
 
 
@@ -147,8 +141,6 @@ class VideoFolder(torch.utils.data.Dataset):
             # Temporal Augmentation
             if not self.is_val:
                 if n_frame - 2 < self.in_duration:
-                    # less frames than needed
-                    # pos = np.sort(np.random.choice(list(range(n_frame - 2)), self.in_duration, replace=True))
                     pos = np.linspace(0, n_frame - 2, self.in_duration)
                 else:
                     pos = np.sort(np.random.choice(list(range(n_frame - 2)), self.in_duration, replace=False))

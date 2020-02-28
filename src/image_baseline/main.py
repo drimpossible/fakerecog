@@ -205,7 +205,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dataset = datasets.FFImageDataset(json_data=args.metadata)
+    train_dataset = datasets.ImageDataset(json_data=args.metadata)
     print('Number of folders in train set {}'.format(len(train_dataset)))
 
     if args.distributed:
@@ -217,7 +217,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True) #, sampler=train_sampler)
 
-    val_dataset = datasets.FFImageDataset(json_data=args.metadata, split='validation')
+    val_dataset = datasets.ImageDataset(json_data=args.metadata, split='validation')
     print('Number of folders in train set {}'.format(len(val_dataset)))
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -225,7 +225,12 @@ def main_worker(gpu, ngpus_per_node, args):
         num_workers=args.workers, pin_memory=True)
 
     if args.evaluate:
-        validate(val_loader, model, criterion, args)
+        eval_dataset = datasets.ImageValidation(json_data=args.metadata, split='validation')
+        eval_loader = torch.utils.data.DataLoader(
+            eval_dataset,
+            batch_size=1, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+        validate(eval_loader, model, criterion, args)
         return
 
     # training, start a logger
@@ -318,7 +323,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None
 
 def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
-    losses = AverageMeter('Loss', ':.4e')
+    losses = AverageMeter('Loss', '')
     top1 = AverageMeter('Acc@1', ':6.2f')
     progress = ProgressMeter(
         len(val_loader),
@@ -340,11 +345,11 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            acc1 = accuracy_max_vote(output, target, topk=(1,))
+            acc1 = accuracy(output, target, topk=(1,))
             # import pdb
             # pdb.set_trace()
             losses.update(loss.item(), images.size(0))
-            top1.update(acc1[0], images.size(0))
+            top1.update(acc1[0][0], images.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -366,6 +371,48 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
         tb_logger.flush()
 
     return top1.avg
+
+def eval(val_loader, model, criterion, args):
+    batch_time = AverageMeter('Time', ':6.3f')
+    losses = AverageMeter('Loss', '')
+    top1 = AverageMeter('Acc@1', ':6.2f')
+    progress = ProgressMeter(
+        len(val_loader),
+        [batch_time, losses, top1],
+        prefix='Test: ')
+
+    # switch to evaluate mode
+    model.eval()
+
+    with torch.no_grad():
+        end = time.time()
+        for i, (images, target) in enumerate(val_loader):
+            if args.gpu is not None:
+                images = images.cuda(args.gpu, non_blocking=True)
+            target = target.cuda(args.gpu, non_blocking=True)
+
+            # compute output
+            output = model(images)
+            output = output.mean(0)
+            target = target[0]
+            loss = criterion(output, target)
+
+            # measure accuracy and record loss
+            acc1 = accuracy(output, target, topk=(1,))
+            # import pdb
+            # pdb.set_trace()
+            losses.update(loss.item(), images.size(0))
+            top1.update(acc1[0][0], images.size(0))
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            if i % args.print_freq == 0:
+                progress.display(i)
+
+        print(' * Acc@1 {top1.avg:.3f} '.format(top1=top1))
+        print(' * Loss {losses.avg:} '.format(top1=losses))
 
 
 def save_checkpoint(state, is_best, filename='checkpoint'):
