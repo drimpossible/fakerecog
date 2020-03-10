@@ -86,7 +86,7 @@ class ImageDataset(Dataset):
             try:
                 if listdata['split'] == self.split:
                     frames = glob.glob(listdata['frames_path'] + '/frames/*.jpg')
-                    frames = sorted(frames)[::3]
+                    frames = sorted(frames)[::6]
                     file_list.extend(frames)
                     labels.extend([listdata['label']] * len(frames))
             except Exception as e:
@@ -142,6 +142,7 @@ class ImageValidation(ImageDataset):
         for listdata in self.json_data:
             try:
                 if listdata['split'] == self.split:
+                    #if 'dfdc_train_part_0' in listdata['frames_path']:
                     file_list.append(listdata['frames_path'])
                     labels.append(listdata['label'])
             except Exception as e:

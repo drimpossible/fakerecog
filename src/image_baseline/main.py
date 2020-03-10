@@ -70,14 +70,14 @@ parser.add_argument('--dist-backend', default='nccl', type=str,
                     help='distributed backend')
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
-parser.add_argument('--gpu', default=None, type=int,
+parser.add_argument('--gpu', default=None, type=str,
                     help='GPU id to use.')
 parser.add_argument('--multiprocessing-distributed', action='store_true',
                     help='Use multi-processing distributed training to launch '
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
-parser.add_argument('--log_freq', '-l', default=10, type=int,
+parser.add_argument('--log_freq', '-l', default=500, type=int,
                     metavar='N', help='frequency to write in tensorboard (default: 10)')
 parser.add_argument('--exp', type=str)
 parser.add_argument('--metadata', type=str,
@@ -120,27 +120,36 @@ def main_worker(gpu, ngpus_per_node, args):
     print("=> creating model '{}'".format(args.arch))
     model, image_size, *_ = model_selection(args.arch, num_out_classes=2, pretrained=args.pretrained)
 
-    if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
-    else:
-        # DataParallel will divide and allocate batch_size to all available GPUs
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
+    #if torch.cuda.device_count() > 1:
+    #    print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #    model = nn.DataParallel(model)
+    #device = torch.device("cuda:{}".format(args.gpu))
+    #model.to(device).cuda()
 
+    #if args.gpu is not None:
+    #    torch.cuda.set_device('cuda:{}'.format(args.gpu))
+    #    model = model.cuda(args.gpu)
+    #else:
+    #    # DataParallel will divide and allocate batch_size to all available GPUs
+    #    if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
+    #        model.features = torch.nn.DataParallel(model.features)
+    #        model.cuda()
+    #    else:
+    #model = model.cuda()
+    model = torch.nn.DataParallel(model).cuda()
+    print('Using all availible gpus')
+   
     for name, i in model.named_parameters():
         if i.requires_grad == True:
             print(name)
     # define loss function (criterion) and optimizer
-    weights = [1.0, 1.0]
-    class_weights = torch.FloatTensor(weights).cuda(args.gpu)
-    criterion = nn.CrossEntropyLoss(weight=class_weights).cuda(args.gpu)
+    weights = [.8, .2]
+    class_weights = torch.FloatTensor(weights)
+    class_weights = class_weights.to('cuda:{}'.format(args.gpu))
+    criterion = nn.CrossEntropyLoss().cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.5)
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -207,7 +216,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
-
+        lr_scheduler.step()
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):
             save_checkpoint({
@@ -216,7 +225,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best, filename=args.exp)
+            }, is_best, filename=args.exp, epoch=epoch+1)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None):
@@ -237,10 +246,11 @@ def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None
         # measure data loading time
         data_time.update(time.time() - end)
 
-        if args.gpu is not None:
-            images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True)
-
+        #if args.gpu is not None:
+        #images = images.cuda(non_blocking=True)
+        images = images.to(torch.device('cuda:{}'.format(args.gpu)))
+        #target = target.cuda(non_blocking=True)
+        target = target.to(torch.device('cuda:{}'.format(args.gpu)))
         # compute output
         output = model(images)
         loss = criterion(output, target)
@@ -290,10 +300,13 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
     with torch.no_grad():
         end = time.time()
         for i, (images, target) in enumerate(val_loader):
-            if args.gpu is not None:
-                images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
-
+            #if args.gpu is not None:
+            #    images = images.cuda(args.gpu, non_blocking=True)
+            #target = target.cuda(args.gpu, non_blocking=True)
+            images = images.to(torch.device('cuda:{}'.format(args.gpu)))
+        #target = target.cuda(non_blocking=True)
+            target = target.to(torch.device('cuda:{}'.format(args.gpu)))
+        #
             # compute output
             output = model(images)
             loss = criterion(output, target)
@@ -370,8 +383,8 @@ def evaluate(val_loader, model, criterion, args):
         print(' * Loss {losses.avg:} '.format(losses=losses))
 
 
-def save_checkpoint(state, is_best, filename='checkpoint'):
-    filename = 'ckpt/' + filename + '.pth.tar'
+def save_checkpoint(state, is_best, filename='checkpoint', epoch=''):
+    filename = 'ckpt/' + str(epoch) + filename + '.pth.tar'
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best_full.pth.tar')

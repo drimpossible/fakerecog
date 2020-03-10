@@ -10,6 +10,8 @@ import torch, time
 from torchvision import transforms
 from utils import burst, forward, detect_utils
 import csv
+import os
+import glob
 
 class Opts(object):
     def __init__(self):
@@ -17,25 +19,25 @@ class Opts(object):
         self.loader_type = 'burst'
         self.batch_size = 32
         self.nms_threshold = 0.4
-        #self.lib_dir = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt'
-        self.lib_dir = '/kaggle/input/codepackage/ckpt'
+        self.lib_dir = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt'
+        #self.lib_dir = '/kaggle/input/codepackage/ckpt'
         self.frame_rate = 12
         self.num_frames = 16
         self.scale = 1.2
-        #self.ckpt = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/ckpt.pth.tar'
-        self.ckpt = '/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
+        self.ckpt = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/ckptV2.pth.tar'
+        #self.ckpt = '/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         #self.ckpt = '/home/anarchicorganizer/codepackage/ckpt/ckpt.pth.tar' #'/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         self.confidence_threshold = 0.75
         self.resize = 1.
-        self.workers = 2
+        self.workers = 20
         self.seed = 0
         self.max_track_age = 20
         self.min_track_hits = 3
 opt = Opts()
 assert(torch.cuda.is_available()), 'Error: No CUDA-enabled device found!'
 
-test_dir = '/kaggle/input/deepfake-detection-challenge/test_videos/'
-#test_dir = '/bigssd/joanna/test_dfdc'
+#test_dir = '/kaggle/input/deepfake-detection-challenge/test_videos/'
+test_dir = '/bigssd/joanna/test_dfdc'
    
 #test_dir = '/media/anarchicorganizer/Emilia/fakerecog/data/dfdc_testing/test_videos/'
 
@@ -51,12 +53,23 @@ print('Num batches {}'.format(batches))
 
 start = time.time()
 inf = forward.InferenceForward(opt)
-allprobs, videoid = inf.detect(loader)
+videopred = inf.detect(loader)
 end = time.time()
-print('Time taken for processing 400 videos: ',(end-start))
+print('time taken: ',(end-start))
 
+testvideos = []
+path = '/bigssd/joanna/fakerecog/data/dfdc_large/dfdc_train_part_'
+for i in range(9):
+    testvideos += glob.glob(path+'{}/*.mp4'.format(i))
+testvideos = [i.split('/')[-1] for i in testvideos]
 
-submission = open('submission.csv', mode='w')
+#testvideos = sorted([x for x in os.listdir(test_dir) if x[-4:] == ".mp4"])
+
+submission = open('submission_test.csv', mode='w')
 submission = csv.writer(submission, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-for (vid, p) in zip(videoid, allprobs):
-    submission.writerow([vid[0], p])
+submission.writerow(['filename','label'])
+for i in range(len(testvideos)):
+    if testvideos[i] in videopred:
+        submission.writerow([testvideos[i], float(videopred[testvideos[i]])])
+    else:
+        submission.writerow([testvideos[i], 0.5])

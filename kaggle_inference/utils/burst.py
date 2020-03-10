@@ -5,7 +5,7 @@ import sh, shutil
 import cv2
 import numpy as np
 from .detect_utils import PriorBox
-
+import glob
 
 def get_all_video_paths(root_dir):
     video_paths = []
@@ -42,7 +42,10 @@ class InferenceLoader(VisionDataset):
 
     def __init__(self, cfg, root, frame_rate=12, num_frames=16):
         super(InferenceLoader, self).__init__(root)
-        self.video_paths = get_all_video_paths(self.root)
+        self.video_paths = []
+        path = '/bigssd/joanna/fakerecog/data/dfdc_large/dfdc_train_part_'
+        for i in range(9):
+            self.video_paths += glob.glob(path+'{}/*.mp4'.format(i))
         if len(self.video_paths) == 0:
             raise (RuntimeError("Found 0 files in subfolders of: " + self.root + "\n"))
         self.frame_rate = frame_rate

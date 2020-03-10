@@ -206,6 +206,8 @@ class Xception(nn.Module):
     def forward(self, input):
         x = self.features(input)
         x = self.logits(x)
+        #print("\tIn Model: input size", input.size(),
+        #      "output size", x.size())
         return x
 
 

@@ -65,7 +65,7 @@ parser.add_argument('--frames_duration', type=int,
 parser.add_argument('--sample_rate', type=int,
                     help='fps')
 parser.add_argument('--exp', type=str)
-
+parser.add_argument('--temp', type=float)
 best_acc1 = 0
 
 
@@ -82,11 +82,6 @@ def main():
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
 
-    if args.dist_url == "env://" and args.world_size == -1:
-        args.world_size = int(os.environ["WORLD_SIZE"])
-
-    args.distributed = args.world_size > 1 or args.multiprocessing_distributed
-
     ngpus_per_node = torch.cuda.device_count()
     main_worker(args.gpu, ngpus_per_node, args)
 
@@ -99,20 +94,12 @@ def main_worker(gpu, ngpus_per_node, args):
         print("Use GPU: {} for training".format(args.gpu))
 
     # create model
-    print("=> creating model '{}'".format(args.arch))
     model = Model(num_classes=2, extract_features=False, loss_type='softmax')
 
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
-    else:
-        # DataParallel will divide and allocate batch_size to all available GPUs
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
-
+    model.cuda()
     # define loss function (criterion) and optimizer
     weights = [1.0, 1.0]
     class_weights = torch.FloatTensor(weights).cuda(args.gpu)
@@ -135,7 +122,15 @@ def main_worker(gpu, ngpus_per_node, args):
             if args.gpu is not None:
                 # best_acc1 may be from a checkpoint from a different GPU
                 best_acc1 = best_acc1.to(args.gpu)
-            model.load_state_dict(checkpoint['state_dict'])
+            try:
+                model.load_state_dict(checkpoint['state_dict'])
+            except:
+                from collections import OrderedDict
+                new_state_dict = OrderedDict()
+                for k, v in checkpoint['state_dict'].items():
+                    name = k[7:]  # remove `module.`
+                    new_state_dict[name] = v
+                model.load_state_dict(new_state_dict)
             optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
@@ -149,11 +144,6 @@ def main_worker(gpu, ngpus_per_node, args):
                                          frames_duration=args.frames_duration,
                                          sample_rate=args.sample_rate)
     print('Number of folders in train set {}'.format(len(train_dataset)))
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
@@ -180,8 +170,6 @@ def main_worker(gpu, ngpus_per_node, args):
     tb_logger = Logger(tb_logdir)
 
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
@@ -194,8 +182,8 @@ def main_worker(gpu, ngpus_per_node, args):
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
 
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
+        if True: #not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                #and args.rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
@@ -225,8 +213,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args, tb_logger=None
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True)
-
+            target = target.cuda(args.gpu, non_blocking=True)
+        images = images.cuda()
+        target = target.cuda()
         # compute output
         output = model(images)
         loss = criterion(output, target)
@@ -279,10 +268,12 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
-
+                target = target.cuda(args.gpu, non_blocking=True)
+            images = images.cuda()
+            target = target.cuda()
             # compute output
             output = model(images)
+            output /= args.temp
             loss = criterion(output, target)
             # measure accuracy and record loss
             acc1 = accuracy(output, target, topk=(1,))
