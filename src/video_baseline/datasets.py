@@ -63,7 +63,9 @@ class VideoFolder(torch.utils.data.Dataset):
         # Transformations
         if not self.is_val:
             self.transforms = [
-                gtransforms.GroupResize((224, 224)),
+                gtransforms.ColorJitter(),
+                gtransforms.GroupResize((230, 230)),
+                gtransforms.GroupRandomCrop((224, 224)),
                 gtransforms.GroupRandomHorizontalFlip()
             ]
         else:
