@@ -62,8 +62,8 @@ class InferenceForward():
                     # Each pass in this loop is 1 track. Make all frame modifications as per needed for video model here.
                     for idx,tracks in enumerate(tracked_out):
                         tracklet_bboxes, tracklet_landmarks, tracklet_confidence, tracklet_frames, tracklet_smooth_bboxes = tracks
-                        final_bboxes = fix_bbox(bboxes=tracklet_smooth_bboxes, scale=self.opt.scale, im_w=width, im_h=height) # We do our own standardization first to ensure all frames are of same size, same as training code.
-                        bbox_frame = torch.cat((tracklet_frames.float().unsqueeze(1),final_bboxes),dim=1)
+                        final_bboxes, final_frames = fix_bbox(bboxes=tracklet_smooth_bboxes, frames=tracklet_frames, scale=self.opt.scale, im_w=width, im_h=height, bs=im.size(0)) # We do our own standardization first to ensure all frames are of same size, same as training code.
+                        bbox_frame = torch.cat((final_frames.float().unsqueeze(1),final_bboxes),dim=1)
                         #bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
                         bbox_frame = bbox_frame.cuda()
                         # TODO: interpolate the bbox predictions across frames, here I select only oframes for which bbox detected
