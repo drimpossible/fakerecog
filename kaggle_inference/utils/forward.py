@@ -4,6 +4,7 @@ from .detect_utils import decode_boxes, decode_landms, AverageMeter, cfg_mnet, c
 from .retinaface import RetinaFace, load_model
 from .track import get_tracks
 from .models import model_selection
+from .i3d import Net as Model
 from torchvision.ops.boxes import batched_nms
 from torchvision.ops import roi_align
 
@@ -15,13 +16,31 @@ class InferenceForward():
         self.opt = opt
         self.det_mean = torch.Tensor([104.0, 117.0, 123.0]).cuda()
         self.det_std=torch.Tensor([1, 1.0, 1.0]).cuda()
-        # # Insert recognition network mean and var here, and load recognition net into self.recnet
-        self.rec_mean = torch.Tensor([0.5*256, 0.5*256, 0.5*256]).cuda()
-        self.rec_std =  torch.Tensor([0.5*256, 0.5*256, 0.5*256]).cuda()
+
         self.cfg = cfg_mnet if opt.model == "Mobilenet0.25" else cfg_res50
         self.detnet = load_model(self.cfg, opt.lib_dir)
-        model, image_size, *_ = model_selection('xception_fulltraining', num_out_classes=2, pretrained=opt.ckpt)
-        self.recnet = model.cuda().eval()
+        if self.opt.recmodel_type == 'image':
+            # # Insert recognition network mean and var here, and load recognition net into self.recnet
+            self.rec_mean = torch.Tensor([0.5 * 256, 0.5 * 256, 0.5 * 256]).cuda()
+            self.rec_std = torch.Tensor([0.5 * 256, 0.5 * 256, 0.5 * 256]).cuda()
+            model, image_size, *_ = model_selection('xception_fulltraining', num_out_classes=2, pretrained=opt.ckpt)
+            self.recnet = model.cuda().eval()
+        elif self.opt.recmodel_type == 'video':
+            self.rec_mean = torch.Tensor([114.75, 114.75, 114.75]).cuda()
+            self.rec_std = torch.Tensor([57.375, 57.375, 57.375]).cuda()
+            self.recnet = Model(num_classes=2, extract_features=False, loss_type='softmax')
+            checkpoint = torch.load(opt.ckpt)
+            try:
+                self.recnet.load_state_dict(checkpoint['state_dict'])
+            except:
+                from collections import OrderedDict
+                new_state_dict = OrderedDict()
+                for k, v in checkpoint['state_dict'].items():
+                    name = k[7:]  # remove `module.`
+                    new_state_dict[name] = v
+                self.recnet.load_state_dict(new_state_dict)
+        self.clip_size = 12
+
 
 
     def detect(self, loader):
@@ -66,7 +85,6 @@ class InferenceForward():
                         bbox_frame = torch.cat((final_frames.float().unsqueeze(1),final_bboxes),dim=1)
                         #bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
                         bbox_frame = bbox_frame.cuda()
-                        # TODO: interpolate the bbox predictions across frames, here I select only oframes for which bbox detected
                         cropped_im = roi_align(images, bbox_frame, (299,299)) # RoI align does cropping and resizing part of it.
                         cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
                         prob = self.recnet(cropped_im) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.

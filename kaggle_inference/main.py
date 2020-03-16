@@ -33,6 +33,7 @@ class Opts(object):
         self.seed = 0
         self.max_track_age = 20
         self.min_track_hits = 3
+        self.recmodel_type = 'image'
 opt = Opts()
 assert(torch.cuda.is_available()), 'Error: No CUDA-enabled device found!'
 
