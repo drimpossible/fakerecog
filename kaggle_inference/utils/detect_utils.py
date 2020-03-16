@@ -1,6 +1,8 @@
 import torch
 from itertools import product as product
 from math import ceil
+import numpy as np
+
 
 class PriorBox(object):
     def __init__(self, cfg, image_size=None):
@@ -103,7 +105,7 @@ def fix_bbox(bboxes, frames, scale, im_w, im_h, bs):
     minx, miny, maxx, maxy = torch.Tensor([0]), torch.Tensor([0]), torch.Tensor([im_w]), torch.Tensor([im_h])
 
     center_x, center_y = (bboxes[:,2] + bboxes[:,0])/2, (bboxes[:,3] + bboxes[:,1])/2
-    interp_frames = np.arange(0,bs)
+    interp_frames = np.arange(0, bs)
 
     interp_center_x, interp_center_y = torch.from_numpy(np.interp(interp_frames, frames.numpy(), center_x.numpy())), torch.from_numpy(np.interp(interp_frames, frames.numpy(), center_y.numpy()))
         

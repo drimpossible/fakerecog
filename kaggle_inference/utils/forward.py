@@ -28,17 +28,17 @@ class InferenceForward():
         elif self.opt.recmodel_type == 'video':
             self.rec_mean = torch.Tensor([114.75, 114.75, 114.75]).cuda()
             self.rec_std = torch.Tensor([57.375, 57.375, 57.375]).cuda()
-            self.recnet = Model(num_classes=2, extract_features=False, loss_type='softmax')
-            checkpoint = torch.load(opt.ckpt)
-            try:
-                self.recnet.load_state_dict(checkpoint['state_dict'])
-            except:
-                from collections import OrderedDict
-                new_state_dict = OrderedDict()
-                for k, v in checkpoint['state_dict'].items():
-                    name = k[7:]  # remove `module.`
-                    new_state_dict[name] = v
-                self.recnet.load_state_dict(new_state_dict)
+            self.recnet = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt)
+#            checkpoint = torch.load(opt.ckpt)
+#            try:
+#                self.recnet.load_state_dict(checkpoint['state_dict'])
+#            except:
+#                from collections import OrderedDict
+#                new_state_dict = OrderedDict()
+#                for k, v in checkpoint['state_dict'].items():
+#                    name = k[7:]  # remove `module.`
+#                    new_state_dict[name] = v
+#                self.recnet.load_state_dict(new_state_dict)
         self.clip_size = 12
 
 
@@ -49,7 +49,7 @@ class InferenceForward():
             video_pred = {}
             for i, inputs in enumerate(loader):
                 images, box_scale, landms_scale, priors, paths, width, height = inputs
-                try:
+                if True:
                     images, box_scale, landms_scale, priors = images.squeeze(0).float().cuda(non_blocking=True), box_scale.cuda(non_blocking=True), landms_scale.cuda(non_blocking=True), priors.cuda(non_blocking=True)
                     im = images.clone()
                     # Normalization for detection model
@@ -87,7 +87,9 @@ class InferenceForward():
                         bbox_frame = bbox_frame.cuda()
                         cropped_im = roi_align(images, bbox_frame, (299,299)) # RoI align does cropping and resizing part of it.
                         cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
+                        print(cropped_im.shape)
                         prob = self.recnet(cropped_im) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
+                        print(prob.shape)
                         prob = torch.nn.functional.softmax(prob, 1)
                         out = float(prob.mean(0)[1]) # Take the probability of being fake here, minor adjustment.
                         if maxprob < out:
@@ -96,7 +98,7 @@ class InferenceForward():
                     maxprob = max(maxprob, 0.05)
                     print(paths[0])
                     video_pred[paths[0]]=maxprob
-                except:
+                else:
                     print(paths[0])
                     video_pred[paths[0]]=0.5
 

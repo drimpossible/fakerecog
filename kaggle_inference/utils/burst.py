@@ -44,7 +44,7 @@ class InferenceLoader(VisionDataset):
         super(InferenceLoader, self).__init__(root)
         self.video_paths = []
         path = '/bigssd/joanna/fakerecog/data/dfdc_large/dfdc_train_part_'
-        for i in range(9):
+        for i in range(1):
             self.video_paths += glob.glob(path+'{}/*.mp4'.format(i))
         if len(self.video_paths) == 0:
             raise (RuntimeError("Found 0 files in subfolders of: " + self.root + "\n"))

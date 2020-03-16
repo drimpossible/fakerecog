@@ -442,20 +442,9 @@ def Net(num_classes=2, add_nonlocal=[False, False, False, False], extract_featur
     if weights is not None:
         kinetics_weights = torch.load(weights)['state_dict']
         print("Found weights in {}.".format(weights))
-        cls_name = 'fc'
-    else:
-        kinetics_weights = torch.load('pretrained_weights/kinetics-res50.pth')
-        cls_name = 'fc'
-        print('>>> \t Restoring Kinetics weights')
 
     new_weights = {}
     for k, v in kinetics_weights.items():
-        if not k.startswith('module.' + cls_name):
             new_weights[k.replace('module.', '')] = v
     net.load_state_dict(new_weights, strict=False)
-
-    if freeze_all_but_cls:
-        for name, par in net.named_parameters():
-            if not name.startswith('classifier'):
-                par.requires_grad = False
     return net
