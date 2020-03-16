@@ -95,7 +95,7 @@ class AverageMeter:
 
 
 
-def fix_bbox(bboxes, scale, im_w, im_h):
+def fix_bbox(bboxes, frames, scale, im_w, im_h, bs):
     w = (bboxes[:,2] - bboxes[:,0]).abs()
     h = (bboxes[:,3] - bboxes[:,1]).abs()
 
@@ -103,9 +103,12 @@ def fix_bbox(bboxes, scale, im_w, im_h):
     minx, miny, maxx, maxy = torch.Tensor([0]), torch.Tensor([0]), torch.Tensor([im_w]), torch.Tensor([im_h])
 
     center_x, center_y = (bboxes[:,2] + bboxes[:,0])/2, (bboxes[:,3] + bboxes[:,1])/2
+    interp_frames = np.arange(0,bs)
+
+    interp_center_x, interp_center_y = torch.from_numpy(np.interp(interp_frames, frames.numpy(), center_x.numpy())), torch.from_numpy(np.interp(interp_frames, frames.numpy(), center_y.numpy()))
         
-    bbox_out = bboxes.clone()
-    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = (center_x-(cropw/2)), (center_y-(croph/2)), (center_x+(cropw/2)), (center_y+(croph/2))
+    bbox_out = torch.zeros((interp_center_x.size(0),4))
+    bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = (interp_center_x-(cropw/2)), (interp_center_y-(croph/2)), (interp_center_x+(cropw/2)), (interp_center_y+(croph/2))
     bbox_out[:,0] = torch.where(bbox_out[:,0] > 0, bbox_out[:,0], minx)
     bbox_out[:,1] = torch.where(bbox_out[:,1] > 0, bbox_out[:,1], miny)
     bbox_out[:,2] = torch.where(bbox_out[:,2] > 0, bbox_out[:,2], maxx)
