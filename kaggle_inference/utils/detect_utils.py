@@ -106,7 +106,8 @@ def fix_bbox(bboxes, frames, scale, im_w, im_h, bs):
     interp_frames = np.arange(0,bs)
 
     interp_center_x, interp_center_y = torch.from_numpy(np.interp(interp_frames, frames.numpy(), center_x.numpy())), torch.from_numpy(np.interp(interp_frames, frames.numpy(), center_y.numpy()))
-        
+    interp_frames = torch.from_numpy(interp_frames)
+    
     bbox_out = torch.zeros((interp_center_x.size(0),4))
     bbox_out[:,0], bbox_out[:,1], bbox_out[:,2], bbox_out[:,3] = (interp_center_x-(cropw/2)), (interp_center_y-(croph/2)), (interp_center_x+(cropw/2)), (interp_center_y+(croph/2))
     bbox_out[:,0] = torch.where(bbox_out[:,0] > 0, bbox_out[:,0], minx)
@@ -114,7 +115,7 @@ def fix_bbox(bboxes, frames, scale, im_w, im_h, bs):
     bbox_out[:,2] = torch.where(bbox_out[:,2] > 0, bbox_out[:,2], maxx)
     bbox_out[:,3] = torch.where(bbox_out[:,3] > 0, bbox_out[:,3], maxy)
 
-    return bbox_out
+    return bbox_out, interp_frames
 
 cfg_mnet = {
     'name': 'Mobilenet0.25',
