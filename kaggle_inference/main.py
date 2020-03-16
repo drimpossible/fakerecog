@@ -60,7 +60,7 @@ print('time taken: ',(end-start))
 
 testvideos = []
 path = '/bigssd/joanna/fakerecog/data/dfdc_large/dfdc_train_part_'
-for i in range(1):
+for i in range(42, 43):
     testvideos += glob.glob(path+'{}/*.mp4'.format(i))
 testvideos = [i.split('/')[-1] for i in testvideos]
 

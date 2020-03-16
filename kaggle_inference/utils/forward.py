@@ -24,11 +24,14 @@ class InferenceForward():
             self.rec_mean = torch.Tensor([0.5 * 256, 0.5 * 256, 0.5 * 256]).cuda()
             self.rec_std = torch.Tensor([0.5 * 256, 0.5 * 256, 0.5 * 256]).cuda()
             model, image_size, *_ = model_selection('xception_fulltraining', num_out_classes=2, pretrained=opt.ckpt)
-            self.recnet = model.cuda().eval()
+            self.opt.crop_size = (299, 299)
         elif self.opt.recmodel_type == 'video':
+            self.opt.crop_size = (224, 224)
             self.rec_mean = torch.Tensor([114.75, 114.75, 114.75]).cuda()
             self.rec_std = torch.Tensor([57.375, 57.375, 57.375]).cuda()
-            self.recnet = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt)
+            model = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt)
+        self.recnet = model.cuda().eval()
+
 #            checkpoint = torch.load(opt.ckpt)
 #            try:
 #                self.recnet.load_state_dict(checkpoint['state_dict'])
@@ -85,18 +88,17 @@ class InferenceForward():
                         bbox_frame = torch.cat((final_frames.float().unsqueeze(1),final_bboxes),dim=1)
                         #bbox_frame = torch.cat((final_bboxes,tracklet_frames.float().unsqueeze(1)),dim=1) # For RoI align function, concatenate bbox and which frame the bbox belongs to.
                         bbox_frame = bbox_frame.cuda()
-                        cropped_im = roi_align(images, bbox_frame, (299,299)) # RoI align does cropping and resizing part of it.
+                        cropped_im = roi_align(images, bbox_frame, self.opt.crop_size) # RoI align does cropping and resizing part of it.
                         cropped_im.sub_(self.rec_mean[None, :, None, None]).div_(self.rec_std[None, :, None, None]) #Mean subtract according to the recognition model
-                        print(cropped_im.shape)
-                        prob = self.recnet(cropped_im) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
-                        print(prob.shape)
+                        prob = self.recnet(cropped_im.unsqueeze(0).transpose(1,2)) # Forward pass in recognition model. For n images, prob should be [n,2] dimensional out.
+                        print(prob)
                         prob = torch.nn.functional.softmax(prob, 1)
                         out = float(prob.mean(0)[1]) # Take the probability of being fake here, minor adjustment.
                         if maxprob < out:
                             maxprob = out
                     maxprob = min(maxprob, 0.95)
                     maxprob = max(maxprob, 0.05)
-                    print(paths[0])
+                    print(paths[0], maxprob)
                     video_pred[paths[0]]=maxprob
                 else:
                     print(paths[0])
