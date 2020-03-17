@@ -62,12 +62,22 @@ class InferenceForward():
                 prob = torch.nn.functional.softmax(prob, 1)
                 out = float(prob.mean(0)[1])  # Take the probability of being fake here, minor adjustment.
             else:
-                prob1 = F.softmax(self.recnet1(video_input), 1)
-                prob2 = F.softmax(self.recnet2(video_input), 1)
-                prob3 = F.softmax(self.recnet3(video_input), 1)
-                prob4 = F.softmax(self.recnet4(video_input), 1)
-                prob5 = F.softmax(self.recnet5(video_input), 1)
-                prob = (prob1+prob2+prob3+prob4+prob5)*.2
+                cropped_im_top_left = cropped_im[:, :, :-8, :-8]
+                cropped_im_bottom_right = cropped_im[:, :, 8:, 8:]
+                cropped_im_center = cropped_im[:, :, 4:-4, 4:-4]
+                cropped_im_one_side = cropped_im[:, :, -8:, 8:]
+                cropped_im_other_side = cropped_im[:, :, 8:, :-8]
+                prob = 0
+                for im in [cropped_im_bottom_right, cropped_im_center, cropped_im_one_side, cropped_im_other_side, cropped_im_top_left]:
+                    for net in [self.recnet1, self.recnet2, self.recnet3, self.recnet4, self.recnet5]:
+                        video_input = im.unsqueeze(0).transpose(1, 2)
+                        prob += F.softmax(net(video_input), 1)
+                # prob1 = F.softmax(self.recnet1(video_input), 1)
+                # prob2 = F.softmax(self.recnet2(video_input), 1)
+                # prob3 = F.softmax(self.recnet3(video_input), 1)
+                # prob4 = F.softmax(self.recnet4(video_input), 1)
+                # prob5 = F.softmax(self.recnet5(video_input), 1)
+                prob = prob*.04
                 out = float(prob.mean(0)[1])  # Take the probability of being fake here, minor adjustment.
         return out
 
