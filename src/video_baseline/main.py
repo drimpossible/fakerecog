@@ -151,7 +151,7 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         model = torch.nn.DataParallel(model).cuda()
     # define loss function (criterion) and optimizer
-    weights = [1.0, 1.0]
+    weights = [0.2, 0.8]
     class_weights = torch.FloatTensor(weights).cuda(args.gpu)
     criterion = nn.CrossEntropyLoss(weight=class_weights).cuda(args.gpu)
 

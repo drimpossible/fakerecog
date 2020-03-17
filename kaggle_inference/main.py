@@ -24,7 +24,8 @@ class Opts(object):
         self.frame_rate = 12
         self.num_frames = 16
         self.scale = 1.2
-        self.ckpt = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar' #ckptV2.pth.tar'
+        self.ckpt = ['/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar', '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split4.pth.tar'] #ckptV2.pth.tar'
+
         #self.ckpt = '/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         #self.ckpt = '/home/anarchicorganizer/codepackage/ckpt/ckpt.pth.tar' #'/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         self.confidence_threshold = 0.75
