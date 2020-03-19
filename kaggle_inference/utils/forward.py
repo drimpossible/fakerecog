@@ -41,13 +41,20 @@ class InferenceForward():
                 self.recnet2 = model.cuda().eval()
                 model = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt[2])
                 self.recnet3 = model.cuda().eval()
-                model = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt[3])
-                self.recnet4 = model.cuda().eval()
-                model = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt[4])
-                self.recnet5 = model.cuda().eval()
+                # model = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt[3])
+                # self.recnet4 = model.cuda().eval()
+                # model = Model(num_classes=2, extract_features=False, loss_type='softmax', weights=opt.ckpt[4])
+                # self.recnet5 = model.cuda().eval()
             else:
                 raise NotImplementedError()
         self.clip_size = 12
+
+    def adjust_prob(self, prob):
+        if prob > 0.5:
+            prob = prob - 0.06
+        elif prob < 0.5:
+            prob = prob + 0.17
+        return prob
 
 
     def get_prob(self, cropped_im):
@@ -56,28 +63,34 @@ class InferenceForward():
             prob = torch.nn.functional.softmax(prob, 1)
             out = float(prob.mean(0)[1])  # Take the probability of being fake here, minor adjustment.
         elif self.opt.recmodel_type == 'video':
+            if cropped_im.size(0) > 12:
+                cropped_im = cropped_im[:12, :, :, :]
             video_input  = cropped_im.unsqueeze(0).transpose(1, 2)
             if type(self.opt.ckpt) == str:
                 prob = self.recnet(video_input)
                 prob = torch.nn.functional.softmax(prob, 1)
                 out = float(prob.mean(0)[1])  # Take the probability of being fake here, minor adjustment.
             else:
-                cropped_im_top_left = cropped_im[:, :, :-8, :-8]
-                cropped_im_bottom_right = cropped_im[:, :, 8:, 8:]
-                cropped_im_center = cropped_im[:, :, 4:-4, 4:-4]
-                cropped_im_one_side = cropped_im[:, :, -8:, 8:]
-                cropped_im_other_side = cropped_im[:, :, 8:, :-8]
-                prob = 0
-                for im in [cropped_im_bottom_right, cropped_im_center, cropped_im_one_side, cropped_im_other_side, cropped_im_top_left]:
-                    for net in [self.recnet1, self.recnet2, self.recnet3, self.recnet4, self.recnet5]:
-                        video_input = im.unsqueeze(0).transpose(1, 2)
-                        prob += F.softmax(net(video_input), 1)
-                # prob1 = F.softmax(self.recnet1(video_input), 1)
-                # prob2 = F.softmax(self.recnet2(video_input), 1)
-                # prob3 = F.softmax(self.recnet3(video_input), 1)
+                # cropped_im_top_left = cropped_im[:, :, :-8, :-8]
+                # cropped_im_bottom_right = cropped_im[:, :, 8:, 8:]
+                # cropped_im_center = cropped_im[:, :, 4:-4, 4:-4]
+                # cropped_im_one_side = cropped_im[:, :, -8:, 8:]
+                # cropped_im_other_side = cropped_im[:, :, 8:, :-8]
+                # prob = 0
+                # for im in [cropped_im_bottom_right, cropped_im_center, cropped_im_one_side, cropped_im_other_side, cropped_im_top_left]:
+                #     for net in [self.recnet1, self.recnet2, self.recnet3]:
+                #         video_input = im.unsqueeze(0).transpose(1, 2)
+                #         prob += F.softmax(net(video_input), 1)
+                prob1 = F.softmax(self.recnet1(video_input), 1)
+                prob1 = self.adjust_prob(prob1)
+                prob2 = F.softmax(self.recnet2(video_input), 1)
+                prob2 = self.adjust_prob(prob2)
+                prob3 = F.softmax(self.recnet3(video_input), 1)
+                prob3 = self.adjust_prob(prob3)
                 # prob4 = F.softmax(self.recnet4(video_input), 1)
                 # prob5 = F.softmax(self.recnet5(video_input), 1)
-                prob = prob*.04
+                prob = (prob1+prob2+prob3)*0.3333
+                # prob = prob * 0.067
                 out = float(prob.mean(0)[1])  # Take the probability of being fake here, minor adjustment.
         return out
 
@@ -129,8 +142,8 @@ class InferenceForward():
                         out = self.get_prob(cropped_im)
                         if maxprob < out:
                             maxprob = out
-                    maxprob = min(maxprob, 0.95)
-                    maxprob = max(maxprob, 0.05)
+                    # maxprob = min(maxprob, 0.95)
+                    # maxprob = max(maxprob, 0.05)
                     print(paths[0])
                     video_pred[paths[0]]=maxprob
                 except:

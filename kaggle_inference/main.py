@@ -66,7 +66,7 @@ testvideos = [i.split('/')[-1] for i in testvideos]
 
 #testvideos = sorted([x for x in os.listdir(test_dir) if x[-4:] == ".mp4"])
 
-submission = open('submission_test.csv', mode='w')
+submission = open('submission.csv', mode='w')
 submission = csv.writer(submission, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 submission.writerow(['filename','label'])
 for i in range(len(testvideos)):
