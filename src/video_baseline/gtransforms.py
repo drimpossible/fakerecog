@@ -68,36 +68,39 @@ class ColorJitter(object):
         Returns:
         list PIL.Image : list of transformed PIL.Image
         """
-        if isinstance(clip[0], np.ndarray):
-            raise TypeError(
-                'Color jitter not yet implemented for numpy arrays')
-        elif isinstance(clip[0], PIL.Image.Image):
-            brightness, contrast, saturation, hue = self.get_params(
-                self.brightness, self.contrast, self.saturation, self.hue)
+        if np.random.rand()>= 0.5:
+            if isinstance(clip[0], np.ndarray):
+                raise TypeError(
+                    'Color jitter not yet implemented for numpy arrays')
+            elif isinstance(clip[0], PIL.Image.Image):
+                brightness, contrast, saturation, hue = self.get_params(
+                    self.brightness, self.contrast, self.saturation, self.hue)
 
-            # Create img transform function sequence
-            img_transforms = []
-            if brightness is not None:
-                img_transforms.append(lambda img: torchvision.transforms.functional.adjust_brightness(img, brightness))
-            if saturation is not None:
-                img_transforms.append(lambda img: torchvision.transforms.functional.adjust_saturation(img, saturation))
-            if hue is not None:
-                img_transforms.append(lambda img: torchvision.transforms.functional.adjust_hue(img, hue))
-            if contrast is not None:
-                img_transforms.append(lambda img: torchvision.transforms.functional.adjust_contrast(img, contrast))
-            random.shuffle(img_transforms)
+                # Create img transform function sequence
+                img_transforms = []
+                if brightness is not None:
+                    img_transforms.append(lambda img: torchvision.transforms.functional.adjust_brightness(img, brightness))
+                if saturation is not None:
+                    img_transforms.append(lambda img: torchvision.transforms.functional.adjust_saturation(img, saturation))
+                if hue is not None:
+                    img_transforms.append(lambda img: torchvision.transforms.functional.adjust_hue(img, hue))
+                if contrast is not None:
+                    img_transforms.append(lambda img: torchvision.transforms.functional.adjust_contrast(img, contrast))
+                random.shuffle(img_transforms)
 
-            # Apply to all images
-            jittered_clip = []
-            for img in clip:
-                for func in img_transforms:
-                    jittered_img = func(img)
-                jittered_clip.append(jittered_img)
+                # Apply to all images
+                jittered_clip = []
+                for img in clip:
+                    for func in img_transforms:
+                        jittered_img = func(img)
+                    jittered_clip.append(jittered_img)
 
+            else:
+                raise TypeError('Expected numpy.ndarray or PIL.Image' +
+                                'but got list of {0}'.format(type(clip[0])))
+            return jittered_clip
         else:
-            raise TypeError('Expected numpy.ndarray or PIL.Image' +
-                            'but got list of {0}'.format(type(clip[0])))
-        return jittered_clip
+            return clip
 
 
 class GroupRandomCrop(object):
@@ -152,6 +155,23 @@ class GroupNormalize(object):
             for t, m, s in zip(tensor[b], self.mean, self.std):
                 t.sub_(m).div_(s)
         return tensor
+
+
+class AddGaussianNoise(object):
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+
+    def __call__(self, tensor):
+        if np.random.rand() >= 0.5:
+            for b in range(tensor.size(0)):
+                noise = torch.randn(tensor.size())
+                for t, m, s in zip(tensor[b], self.mean, self.std):
+                    t + noise * self.std + self.mean
+        return tensor
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 
 class LoopPad(object):
