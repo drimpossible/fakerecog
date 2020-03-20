@@ -64,19 +64,21 @@ class VideoFolder(torch.utils.data.Dataset):
         if not self.is_val:
             self.transforms = [
                 gtransforms.ColorJitter(),
-                gtransforms.GroupResize((230, 230)),
+                gtransforms.GroupResize((256, 256)),
                 gtransforms.GroupRandomCrop((224, 224)),
                 gtransforms.GroupRandomHorizontalFlip()
             ]
         else:
             self.transforms = [
-                gtransforms.GroupResize((224, 224))
-                # gtransforms.GroupCenterCrop(256),
+                gtransforms.GroupResize((256, 256)),
+                gtransforms.GroupCenterCrop(224),
             ]
         self.transforms += [
             gtransforms.ToTensor(),
             gtransforms.GroupNormalize(self.img_mean, self.img_std),
         ]
+        if not self.is_val:
+            self.transforms += [gtransforms.AddGaussianNoise()]
         self.transforms = Compose(self.transforms)
         self.prepare_data()
         self.int_label = lambda x: 1 if x == 'FAKE' else 0
