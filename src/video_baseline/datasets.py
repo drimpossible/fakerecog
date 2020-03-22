@@ -8,7 +8,7 @@ import torch
 import gtransforms
 import glob
 import json
-
+from torchvision import transforms as T
 '''
 Assumes we generated a metafile in json format that is a list of form:
 [{'frame folder path': 'full_path_to_the_frames_folder',
@@ -77,8 +77,8 @@ class VideoFolder(torch.utils.data.Dataset):
             gtransforms.ToTensor(),
             gtransforms.GroupNormalize(self.img_mean, self.img_std),
         ]
-        if not self.is_val:
-            self.transforms += [gtransforms.AddGaussianNoise()]
+        #if not self.is_val:
+        #    self.transforms += [T.Lambda(lambda x : x + torch.randn_like(x))] #[gtransforms.AddGaussianNoise()]
         self.transforms = Compose(self.transforms)
         self.prepare_data()
         self.int_label = lambda x: 1 if x == 'FAKE' else 0
