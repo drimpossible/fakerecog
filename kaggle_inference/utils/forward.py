@@ -28,7 +28,7 @@ class InferenceForward():
             self.opt.crop_size = (299, 299)
             self.recnet = model.cuda().eval()
         elif self.opt.recmodel_type == 'video':
-            self.opt.crop_size = (224, 224)
+            self.opt.crop_size = (256, 256)
             self.rec_mean = torch.Tensor([114.75, 114.75, 114.75]).cuda()
             self.rec_std = torch.Tensor([57.375, 57.375, 57.375]).cuda()
             if type(opt.ckpt) == str:
@@ -57,29 +57,32 @@ class InferenceForward():
         return prob
 
     def get_prob_5crop_3models(self, video):
+        video = video.squeeze()
         cropped_im_top_left = video[:, :, :-32, :-32]
         cropped_im_bottom_right = video[:, :, 32:, 32:]
         cropped_im_center = video[:, :, 16:-16, 16:-16]
-        cropped_im_one_side = video[:, :, -32:, 32:]
+        cropped_im_one_side = video[:, :, 32:, 32:]
         cropped_im_other_side = video[:, :, 32:, :-32]
         video_input = torch.empty((15, 3, 12, 224, 224))
-        video_input[0] = cropped_im_top_left[:, :, :12, :, :]
-        video_input[1] = cropped_im_other_side[:, :, :12, :, :]
-        video_input[2] = cropped_im_one_side[:, :, :12, :, :]
-        video_input[3] = cropped_im_center[:, :, :12, :, :]
-        video_input[4] = cropped_im_bottom_right[:, :, :12, :, :]
+        import pdb
+        pdb.set_trace()
+        video_input[0] = cropped_im_top_left[:, :12, :, :]
+        video_input[1] = cropped_im_other_side[:, :12, :, :]
+        video_input[2] = cropped_im_one_side[:, :12, :, :]
+        video_input[3] = cropped_im_center[:, :12, :, :]
+        video_input[4] = cropped_im_bottom_right[:, :12, :, :]
 
-        video_input[5] = cropped_im_top_left[:, :, 12:24, :, :]
-        video_input[6] = cropped_im_other_side[:, :, 12:24, :, :]
-        video_input[7] = cropped_im_one_side[:, :, 12:24, :, :]
-        video_input[8] = cropped_im_center[:, :, 12:24, :, :]
-        video_input[9] = cropped_im_bottom_right[:, :, 12:24, :, :]
+        video_input[5] = cropped_im_top_left[:, 12:24, :, :]
+        video_input[6] = cropped_im_other_side[:, 12:24, :, :]
+        video_input[7] = cropped_im_one_side[:, 12:24, :, :]
+        video_input[8] = cropped_im_center[:, 12:24, :, :]
+        video_input[9] = cropped_im_bottom_right[:, 12:24, :, :]
 
-        video_input[10] = cropped_im_top_left[:, :, 24:, :, :]
-        video_input[11] = cropped_im_other_side[:, :, 24:, :, :]
-        video_input[12] = cropped_im_one_side[:, :, 24:, :, :]
-        video_input[13] = cropped_im_center[:, :, 24:, :, :]
-        video_input[14] = cropped_im_bottom_right[:, :, 24:, :, :]
+        video_input[10] = cropped_im_top_left[:, 24:, :, :]
+        video_input[11] = cropped_im_other_side[:, 24:, :, :]
+        video_input[12] = cropped_im_one_side[:, 24:, :, :]
+        video_input[13] = cropped_im_center[:, 24:, :, :]
+        video_input[14] = cropped_im_bottom_right[:, 24:, :, :]
         video_input = video_input.cuda()
         prob1 = self.recnet1(video_input)
         prob1 = (F.softmax(prob1[:5].mean(0)) + F.softmax(prob1[5:10].mean(0)) + F.softmax(prob1[10:].mean(0)))[1]*0.33333

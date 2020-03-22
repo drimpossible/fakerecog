@@ -22,9 +22,9 @@ class Opts(object):
         self.lib_dir = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt'
         #self.lib_dir = '/kaggle/input/codepackage/ckpt'
         self.frame_rate = 12
-        self.num_frames = 16
+        self.num_frames = 36
         self.scale = 1.2
-        self.ckpt = ['/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar', '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split4.pth.tar'] #ckptV2.pth.tar'
+        self.ckpt = ['/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar','/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar', '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar'] #ckptV2.pth.tar'
 
         #self.ckpt = '/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         #self.ckpt = '/home/anarchicorganizer/codepackage/ckpt/ckpt.pth.tar' #'/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
