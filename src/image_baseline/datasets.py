@@ -1,113 +1,59 @@
-import os
-import glob
-import numpy as np
-import json
-from PIL import Image as pil_image
-import cv2
-from torch.utils.data import Dataset
-from torchvision import transforms
-import itertools
-import random
 import json
 import torch
+import cv2
+import numpy as np
+from torch.utils.data import Dataset
+from albumentations import Compose, RandomCrop, Normalize, HorizontalFlip, Resize
+from albumentations.pytorch import ToTensor
 
-flatten = lambda l: [item for sublist in l for item in sublist]
-
-
-class ImageDataset(Dataset):
-
-    def __init__(self, json_data, split='train',
-                 ):
-        self.json_data = json.load(open(json_data, 'r'))
-        self.split = split
-        self.get_file_list()
-        self.transforms  = {
-            'train': transforms.Compose([
-                transforms.Resize((299, 299)),
-                transforms.RandomChoice([
-                    transforms.RandomResizedCrop(299, ratio=(0.9, 1.1),scale=(0.8, 1.1)),
-                    transforms.RandomHorizontalFlip(p=0.5),
-                    transforms.ColorJitter(0.5, contrast=0.8, saturation=0.5),
-                    transforms.RandomRotation(5),
-                ]),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5] * 3, [0.5] * 3)
-            ]),
-            'validation': transforms.Compose([
-                transforms.Resize((299, 299)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5] * 3, [0.5] * 3)
-            ]),
-            'test': transforms.Compose([
-                transforms.Resize((299, 299)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5] * 3, [0.5] * 3)
-            ]),
-        }
-        self.int_label = lambda x: 1 if x == 'FAKE' else 0
-
-    def get_boundingbox(self, face, width, height, scale=1.3, minsize=None):
-        """
-        Expects a dlib face to generate a quadratic bounding box.
-        :param face: dlib face class
-        :param width: frame width
-        :param height: frame height
-        :param scale: bounding box size multiplier to get a bigger face region
-        :param minsize: set minimum bounding box size
-        :return: x, y, bounding_box_size in opencv form
-        """
-        x1 = face.left()
-        y1 = face.top()
-        x2 = face.right()
-        y2 = face.bottom()
-        size_bb = int(max(x2 - x1, y2 - y1) * scale)
-        if minsize:
-            if size_bb < minsize:
-                size_bb = minsize
-        center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
-
-        # Check for out of bounds, x-y top left corner
-        x1 = max(int(center_x - size_bb // 2), 0)
-        y1 = max(int(center_y - size_bb // 2), 0)
-        # Check for too big bb size for given x, y
-        size_bb = min(width - x1, size_bb)
-        size_bb = min(height - y1, size_bb)
-
-        return x1, y1, size_bb
-
-    def get_file_list(self):
-        """
-        This function creates 3 lists: vid_names, labels and frame_cnts
-        :return:
-        """
+class SimpleFolderLoader(Dataset):
+    def __init__(self, root, split, valfolders, transform=None):
+        with open(root+'/processed_dataset.json','r') as f:
+            data = json.load(f)
+        assert(split in ['train','val'])
+        self.root = root
+        image_paths = []
         labels = []
-        file_list = []
-        for listdata in self.json_data:
-            try:
-                if listdata['split'] == self.split:
-                    frames = glob.glob(listdata['frames_path'] + '/frames/*.jpg')
-                    frames = sorted(frames)[::6]
-                    file_list.extend(frames)
-                    labels.extend([listdata['label']] * len(frames))
-            except Exception as e:
-                print(str(e))
+        val_list = ['dfdc_train_part_'+str(f) for f in valfolders]
+        train_list = ['dfdc_train_part_'+str(f) for f in range(50) if f not in valfolders]
+        
+        avoid_list = train_list if split=='val' else val_list
+        
+        for k, v in data.items():
+            if k.strip().split('/')[0] not in avoid_list:
+                image_paths.append(k)
+                assert(v['image_label'] in ['REAL','FAKE'])
+                lb = 1 if v['image_label'] == 'FAKE' else 0
+                labels.append(lb)
 
-        self.file_list = file_list
-        self.labels = labels
+        self.labels = torch.from_numpy(np.array(labels))        
+        self.image_paths = image_paths
+        del data
 
+        # Get image list and labels
+        self.transform = transform
 
-    def __getitem__(self, index: int):
-        path = self.file_list[index]
+    def __getitem__(self, index):
+        """
+        Args: index (int): Index
+        Returns: tuple: (image_path, image).
+        """
+        path = self.image_paths[index]
         label = self.labels[index]
-        label = self.int_label(label)
-        image = self.transforms[self.split](pil_image.open(path))
+        
+        image = cv2.imread(self.root+'/'+path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        if self.transform:
+            augmented = self.transform(image=image)
+            image = augmented['image']
+
         return image, label
 
     def __len__(self):
-        return len(self.file_list)
+        return len(self.image_paths)
 
-
-<<<<<<< HEAD
+## This code is interesting. Probably can directly use with our code?
 class ImageValidation(ImageDataset):
 
     def __init__(self, json_data, split='validation'):
@@ -151,25 +97,3 @@ class ImageValidation(ImageDataset):
 
         self.file_list = file_list
         self.labels = labels
-
-
-    def __len__(self):
-        return len(self.file_list)
-
-    def __getitem__(self, item):
-        try:
-            frames = glob.glob(self.file_list[item] + '/frames/*.jpg')
-            frames = sorted(frames)[::2][:32]
-            label = self.labels[item]
-            images = []
-            for f in frames:
-                images.append(self.transforms[self.split](pil_image.open(f)))
-            label = self.int_label(label)
-            return torch.stack(images), [label]*len(images)
-        except:
-            print(self.file_list[item])
-            images = torch.zeros((32, 3, 299, 299))
-            label = 0
-            return images, [label]*32
-=======
->>>>>>> 8a4f3a5... change name and cleanup
