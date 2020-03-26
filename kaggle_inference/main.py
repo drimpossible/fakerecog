@@ -22,9 +22,10 @@ class Opts(object):
         self.lib_dir = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt'
         #self.lib_dir = '/kaggle/input/codepackage/ckpt'
         self.frame_rate = 12
-        self.num_frames = 16
+        self.num_frames = 36
         self.scale = 1.2
-        self.ckpt = '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/ckptV2.pth.tar'
+        self.ckpt = ['/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar','/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar', '/homes/53/joanna/fakerecog/kaggle_inference/ckpt/epoch4split5.pth.tar'] #ckptV2.pth.tar'
+
         #self.ckpt = '/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         #self.ckpt = '/home/anarchicorganizer/codepackage/ckpt/ckpt.pth.tar' #'/kaggle/input/codepackage/ckpt/ckpt.pth.tar'
         self.confidence_threshold = 0.75
@@ -33,7 +34,7 @@ class Opts(object):
         self.seed = 0
         self.max_track_age = 20
         self.min_track_hits = 3
-        self.recmodel_type = 'image'
+        self.recmodel_type = 'video'
 opt = Opts()
 assert(torch.cuda.is_available()), 'Error: No CUDA-enabled device found!'
 
@@ -60,13 +61,13 @@ print('time taken: ',(end-start))
 
 testvideos = []
 path = '/bigssd/joanna/fakerecog/data/dfdc_large/dfdc_train_part_'
-for i in range(9):
+for i in range(42, 43):
     testvideos += glob.glob(path+'{}/*.mp4'.format(i))
 testvideos = [i.split('/')[-1] for i in testvideos]
 
 #testvideos = sorted([x for x in os.listdir(test_dir) if x[-4:] == ".mp4"])
 
-submission = open('submission_test.csv', mode='w')
+submission = open('submission.csv', mode='w')
 submission = csv.writer(submission, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 submission.writerow(['filename','label'])
 for i in range(len(testvideos)):

@@ -151,12 +151,13 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         model = torch.nn.DataParallel(model).cuda()
     # define loss function (criterion) and optimizer
-    weights = [1.0, 1.0]
+    weights = [0.8, 0.2]
     class_weights = torch.FloatTensor(weights).cuda(args.gpu)
     criterion = nn.CrossEntropyLoss(weight=class_weights).cuda(args.gpu)
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-
+    lr_decayer = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                        optimizer, 'min', factor=0.5, patience=2, verbose=True)
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -226,8 +227,8 @@ def main_worker(gpu, ngpus_per_node, args):
         train(train_loader, model, criterion, optimizer, epoch, args, tb_logger)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args, epoch=epoch, tb_logger=tb_logger)
-
+        val_loss, acc1 = validate(val_loader, model, criterion, args, epoch=epoch, tb_logger=tb_logger)
+        lr_decayer.step(val_loss, epoch)
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
@@ -348,7 +349,7 @@ def validate(val_loader, model, criterion, args, epoch=None, tb_logger=None):
 
         tb_logger.flush()
 
-    return top1.avg
+    return top1.avg, losses.avg
 
 def save_checkpoint(state, is_best, filename='checkpoint'):
     filename = 'ckpt/' + filename + '.pth.tar'
