@@ -118,7 +118,7 @@ def train(loader, model, criterion, optimizer, epoch, args, iterations, tb_logge
 
     # switch to train mode
     model.train()
-
+    print("==> Starting pass number: "+str(epoch)+", Learning rate: " + str(optimizer.param_groups[-1]['lr']))
     end = time.time()
     for i, (images, target) in enumerate(loader):
         # measure data loading time
