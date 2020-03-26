@@ -53,47 +53,47 @@ class SimpleFolderLoader(Dataset):
     def __len__(self):
         return len(self.image_paths)
 
-## This code is interesting. Probably can directly use with our code?
-class ImageValidation(ImageDataset):
+## This code is interesting. After a bit cleaning I can directly input in the code, but probably not now.
+# class ImageValidation(ImageDataset):
 
-    def __init__(self, json_data, split='validation'):
-        self.json_data = json.load(open(json_data, 'r'))
-        self.split = split
-        self.get_file_list()
-        self.transforms = {
-            'train': transforms.Compose([
-                transforms.Resize((299, 299)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5] * 3, [0.5] * 3)
-            ]),
-            'validation': transforms.Compose([
-                transforms.Resize((299, 299)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5] * 3, [0.5] * 3)
-            ]),
-            'test': transforms.Compose([
-                transforms.Resize((299, 299)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5] * 3, [0.5] * 3)
-            ]),
-        }
-        self.int_label = lambda x: 1 if x == 'FAKE' else 0
+#     def __init__(self, json_data, split='validation'):
+#         self.json_data = json.load(open(json_data, 'r'))
+#         self.split = split
+#         self.get_file_list()
+#         self.transforms = {
+#             'train': transforms.Compose([
+#                 transforms.Resize((299, 299)),
+#                 transforms.ToTensor(),
+#                 transforms.Normalize([0.5] * 3, [0.5] * 3)
+#             ]),
+#             'validation': transforms.Compose([
+#                 transforms.Resize((299, 299)),
+#                 transforms.ToTensor(),
+#                 transforms.Normalize([0.5] * 3, [0.5] * 3)
+#             ]),
+#             'test': transforms.Compose([
+#                 transforms.Resize((299, 299)),
+#                 transforms.ToTensor(),
+#                 transforms.Normalize([0.5] * 3, [0.5] * 3)
+#             ]),
+#         }
+#         self.int_label = lambda x: 1 if x == 'FAKE' else 0
 
-    def get_file_list(self):
-        """
-        This function creates 3 lists: vid_names, labels and frame_cnts
-        :return:
-        """
-        labels = []
-        file_list = []
-        for listdata in self.json_data:
-            try:
-                if listdata['split'] == self.split:
-                    #if 'dfdc_train_part_0' in listdata['frames_path']:
-                    file_list.append(listdata['frames_path'])
-                    labels.append(listdata['label'])
-            except Exception as e:
-                print(str(e))
+#     def get_file_list(self):
+#         """
+#         This function creates 3 lists: vid_names, labels and frame_cnts
+#         :return:
+#         """
+#         labels = []
+#         file_list = []
+#         for listdata in self.json_data:
+#             try:
+#                 if listdata['split'] == self.split:
+#                     #if 'dfdc_train_part_0' in listdata['frames_path']:
+#                     file_list.append(listdata['frames_path'])
+#                     labels.append(listdata['label'])
+#             except Exception as e:
+#                 print(str(e))
 
-        self.file_list = file_list
-        self.labels = labels
+#         self.file_list = file_list
+#         self.labels = labels

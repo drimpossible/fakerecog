@@ -11,15 +11,15 @@ from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normal
 from albumentations.pytorch import ToTensor
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--datadir', default='/media/anarchicorganizer/Emilia/fakerecog/data/dfdc_bursted_final/', type=str, help='Location of the main json file')
-parser.add_argument('--epochs', default=3, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--epochs', default=32, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float, help='initial learning rate', dest='lr')
+parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, help='initial learning rate', dest='lr')
 parser.add_argument('-p', '--print-freq', default=200, type=int, help='print frequency (default: 10)')
 parser.add_argument('--logdir', type=str, default='../../logs', help='folder to store log files')
 parser.add_argument('--log_freq', '-l', default=500, type=int, help='frequency to write in tensorboard (default: 10)')
@@ -70,20 +70,21 @@ def main():
 
     # Initialize optimizer for training Phase 1
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.5)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2, eta_min=0)
     torch.backends.cudnn.benchmark = True
     print('==> Model, optimizer, criterion initialized..')
 
     print('==> Training last layer..')
     # Train for one epoch and evaluate on validation set
-    train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=0, args=args, tb_logger=tb_logger)
-    acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
+    for epoch in range(args.epochs):
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=0, iterations=500, args=args, tb_logger=tb_logger)
+        acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
     
     # Phase 2: Train all layers
     # Set all layers for learning, and parallelize over GPUs
     for param in model.parameters():
         param.requires_grad = True
-    model = torch.nn.DataParallel(model).cuda()
+    #model = torch.nn.DataParallel(model).cuda()
 
     # Reset optimizer
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
@@ -92,7 +93,7 @@ def main():
 
     for epoch in range(args.epochs):
         # train for one epoch and evaluate on validation set
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, args=args, tb_logger=tb_logger)
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=500, args=args, tb_logger=tb_logger)
         acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -105,7 +106,7 @@ def main():
                 'optimizer' : optimizer.state_dict()}, filename)
 
 
-def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
+def train(loader, model, criterion, optimizer, epoch, args, iterations, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -147,18 +148,22 @@ def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
         if i % args.print_freq == 0:
             progress.display(i)
 
+
         # log training data into tensorboard
         if tb_logger is not None and i % args.log_freq == 0:
             logs = OrderedDict()
             logs['Train_IterLoss'] = losses.val
             logs['Train_Acc@1'] = top1.val
             # how many iterations we have trained
-            iter_count = epoch * len(loader) + i
+            iter_count = epoch * iterations + i
             for key, value in logs.items():
                 tb_logger.log_scalar(value, key, iter_count)
 
             tb_logger.flush()
-
+        
+        if i >= iterations:
+            break 
+        
 
 def test(loader, model, criterion, args, epoch=None, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
