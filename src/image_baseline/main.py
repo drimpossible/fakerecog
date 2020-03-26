@@ -78,7 +78,8 @@ def main():
     # Train for one epoch and evaluate on validation set
     for epoch in range(args.epochs):
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=0, iterations=500, args=args, tb_logger=tb_logger)
-        acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
+        if epoch%8 == 7:
+            acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
     
     # Phase 2: Train all layers
     # Set all layers for learning, and parallelize over GPUs
@@ -94,7 +95,10 @@ def main():
     for epoch in range(args.epochs):
         # train for one epoch and evaluate on validation set
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=500, args=args, tb_logger=tb_logger)
-        acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
+        if epoch%8 == 7:
+            acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
+        else:
+            acc1, nll = 0, 1000
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
