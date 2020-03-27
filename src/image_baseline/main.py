@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from efficientnet_pytorch import EfficientNet
 from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normalize, HorizontalFlip, Resize
 from albumentations.pytorch import ToTensor
+from loss import FocalLoss
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
@@ -25,7 +26,7 @@ parser.add_argument('--logdir', type=str, default='../../logs', help='folder to 
 parser.add_argument('--log_freq', '-l', default=500, type=int, help='frequency to write in tensorboard (default: 10)')
 parser.add_argument('--exp', type=str, default='test', help='experiment name')
 parser.add_argument('--temp', default=1, type=float, help='temperature')
-
+parser.add_argument('--lossfunc', default='crossentropy', choices=['crossentropy','focal'], type=str, help='Loss function to train with')
 
 
 def main():
@@ -78,6 +79,7 @@ def main():
     # Train for one epoch and evaluate on validation set
     for epoch in range(args.epochs):
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=0, iterations=500, args=args, tb_logger=tb_logger)
+        lr_scheduler.step()
         if epoch%8 == 7:
             acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
     
@@ -89,7 +91,7 @@ def main():
 
     # Reset optimizer
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.5)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2, eta_min=0)
     torch.backends.cudnn.benchmark = True
 
     for epoch in range(args.epochs):
