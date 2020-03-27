@@ -95,6 +95,7 @@ def main():
         # train for one epoch and evaluate on validation set
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=750, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
+
     
     acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
     filename = args.logdir +'/'+ args.exp + '/' + 'ckpt.pth.tar'
