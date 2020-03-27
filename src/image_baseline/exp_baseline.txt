@@ -1,0 +1,9 @@
+########################
+logging outputs to  ../../logs/baseline_cosinelr_effb5_exp
+########################
+==> Opts and logger initialized..
+==> Train and val loaders initialized..
+Loaded pretrained weights for efficientnet-b5
+==> Model, optimizer, criterion initialized..
+==> Training last layer..
+==> Starting pass number: 0, Learning rate: 0.0002
