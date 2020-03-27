@@ -41,8 +41,8 @@ def main():
     valfolders = [0]
 
     base_transforms = [Resize(224, 224), Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225],), ToTensor()]
-    train_extra = [ISONoise(), HorizontalFlip(), JpegCompression(quality_lower=19, quality_upper=100, p=0.75), Downscale(scale_min=0.25, scale_max=0.99, p=0.5)]
-
+    #train_extra = [ISONoise(), RandomBrightnessContrast(), RandomGamma(), CLAHE(), HorizontalFlip(), JpegCompression(quality_lower=19, quality_upper=100, p=0.75), Downscale(scale_min=0.25, scale_max=0.99, p=0.5)]
+    train_extra = [HorizontalFlip()]
     train_transforms = Compose(train_extra+base_transforms)
     val_transforms = Compose(base_transforms)
     train_dataset = datasets.SimpleFolderLoader(root=args.datadir, split='train', valfolders=valfolders, transform=train_transforms)
@@ -95,9 +95,9 @@ def main():
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=500, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
    
-     acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
-     filename = 'ckpt/' + args.exp + '.pth.tar'
-     torch.save({'acc1': acc1,
+    acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
+    filename = 'ckpt/' + args.exp + '.pth.tar'
+    torch.save({'acc1': acc1,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict()}, filename)
 
