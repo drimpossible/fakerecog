@@ -7,22 +7,18 @@ from callbacks import Logger
 import torch
 from torch.utils.data import DataLoader
 from efficientnet_pytorch import EfficientNet
-from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normalize, HorizontalFlip, Resize
+from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normalize, HorizontalFlip, Resize, RandomBrightnessContrast, RandomGamma, CLAHE
 from albumentations.pytorch import ToTensor
 from loss import FocalLoss
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
-parser.add_argument('--datadir', default='/media/anarchicorganizer/Emilia/fakerecog/data/dfdc_bursted_final/', type=str, help='Location of the main json file')
-parser.add_argument('--epochs', default=32, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
-                    help='mini-batch size (default: 256), this is the total '
-                         'batch size of all GPUs on the current node when '
-                         'using Data Parallel or Distributed Data Parallel')
+parser.add_argument('-j', '--workers', default=16, type=int, help='number of data loading workers (default: 4)')
+parser.add_argument('--datadir', default='/bigssd/joanna/fakerecog/data/dfdc_bursted_final/', type=str, help='Location of the main json file')
+parser.add_argument('--epochs', default=62, type=int, help='number of total epochs to run')
+parser.add_argument('-b', '--batch-size', default=64, type=int, help='mini-batch size (default: 256)')
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, help='initial learning rate', dest='lr')
 parser.add_argument('-p', '--print-freq', default=200, type=int, help='print frequency (default: 10)')
-parser.add_argument('--logdir', type=str, default='../../logs', help='folder to store log files')
+parser.add_argument('--logdir', type=str, default='../../logs/', help='folder to store log files')
 parser.add_argument('--log_freq', '-l', default=500, type=int, help='frequency to write in tensorboard (default: 10)')
 parser.add_argument('--exp', type=str, default='test', help='experiment name')
 parser.add_argument('--temp', default=1, type=float, help='temperature')
@@ -43,7 +39,8 @@ def main():
     valfolders = [0]
 
     base_transforms = [Resize(224, 224), Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225],), ToTensor()]
-    train_extra = [ISONoise(), HorizontalFlip(), JpegCompression(quality_lower=19, quality_upper=100, p=0.75), Downscale(scale_min=0.25, scale_max=0.99, p=0.5)]
+    #train_extra = [ISONoise(), RandomBrightnessContrast(), RandomGamma(), CLAHE(), HorizontalFlip(), JpegCompression(quality_lower=19, quality_upper=100, p=0.75), Downscale(scale_min=0.25, scale_max=0.99, p=0.5)]
+    train_extra = [HorizontalFlip()]
 
     train_transforms = Compose(train_extra+base_transforms)
     val_transforms = Compose(base_transforms)
@@ -59,9 +56,8 @@ def main():
     criterion = torch.nn.CrossEntropyLoss(weight=class_weights).cuda()
 
     # Import a pretrained model
-    model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=2)
-    
-    # Phase 1: Train the last layer 
+    model = EfficientNet.from_pretrained('efficientnet-b5', num_classes=2)
+    # Phase 1: Train the last layer
     # Set only last layer for learning
     for param in model.parameters():
         param.requires_grad = False
@@ -71,43 +67,35 @@ def main():
 
     # Initialize optimizer for training Phase 1
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2, eta_min=0)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=2, T_mult=2, eta_min=2e-6)
     torch.backends.cudnn.benchmark = True
     print('==> Model, optimizer, criterion initialized..')
 
     print('==> Training last layer..')
     # Train for one epoch and evaluate on validation set
-    for epoch in range(args.epochs):
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=0, iterations=500, args=args, tb_logger=tb_logger)
+    for epoch in range(6):
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch, iterations=750, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
-        if epoch%8 == 7:
-            acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
-    
+    acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
+
     # Phase 2: Train all layers
     # Set all layers for learning, and parallelize over GPUs
     for param in model.parameters():
         param.requires_grad = True
-    #model = torch.nn.DataParallel(model).cuda()
 
     # Reset optimizer
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2, eta_min=0)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=2, T_mult=2, eta_min=1e-6)
     torch.backends.cudnn.benchmark = True
 
     for epoch in range(args.epochs):
         # train for one epoch and evaluate on validation set
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=500, args=args, tb_logger=tb_logger)
-        if epoch%8 == 7:
-            acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
-        else:
-            acc1, nll = 0, 1000
-        # remember best acc@1 and save checkpoint
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=750, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
-        if is_best:
-            filename = 'ckpt/' + str(epoch+1) + args.exp + '.pth.tar'
-            torch.save({'epoch': epoch + 1, 'arch': args.arch, 'best_acc1': best_acc1,
+
+    acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
+    filename = args.logdir +'/'+ args.exp + '/' + 'ckpt.pth.tar'
+    torch.save({'acc1': acc1,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict()}, filename)
 
@@ -129,7 +117,7 @@ def train(loader, model, criterion, optimizer, epoch, args, iterations, tb_logge
     for i, (images, target) in enumerate(loader):
         # measure data loading time
         data_time.update(time.time() - end)
-        
+
         #if args.gpu is not None:
         images, target = images.cuda(non_blocking=True), target.cuda(non_blocking=True)
 
