@@ -10,7 +10,6 @@ from efficientnet_pytorch import EfficientNet
 from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normalize, HorizontalFlip, Resize, RandomBrightnessContrast, RandomGamma, MotionBlur
 from albumentations.pytorch import ToTensor
 from loss import FocalLoss
-from torch.utils.data.sampler import WeightedRandomSampler
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('-j', '--workers', default=16, type=int, help='number of data loading workers (default: 4)')
@@ -48,8 +47,7 @@ def main():
                                                          transform=train_transforms, choose_class='REAL')
     train_dataset_negative = datasets.SimpleFolderLoader(root=args.datadir, split='train', valfolders=valfolders,
                                                          transform=train_transforms, choose_class='FAKE')
-    # weights = train_dataset.weights
-    # samp = WeightedRandomSampler(weights=weights, num_samples=750, replacement=False)
+    
     val_dataset = datasets.SimpleFolderLoader(root=args.datadir, split='val', valfolders=valfolders, transform=val_transforms)
     train_loader_pos = DataLoader(train_dataset_positive, batch_size=args.batch_size//2, shuffle=True, num_workers=args.workers, pin_memory=True)
     train_loader_neg = DataLoader(train_dataset_negative, batch_size=args.batch_size//2, shuffle=True, num_workers=args.workers,
@@ -84,7 +82,7 @@ def main():
     # Train for one epoch and evaluate on validation set
     for epoch in range(6):
         train_loader = (train_loader_pos, train_loader_neg)
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch, args=args, tb_logger=tb_logger)
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iters=750, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
     acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
 
@@ -101,17 +99,17 @@ def main():
     for epoch in range(args.epochs):
         # train for one epoch and evaluate on validation set
         train_loader = (train_loader_pos, train_loader_neg)
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, args=args, tb_logger=tb_logger)
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iters=750, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
 
-    acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
+    acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
     filename = args.logdir +'/'+ args.exp + '/' + 'ckpt.pth.tar'
     torch.save({'acc1': acc1,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict()}, filename)
 
 
-def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
+def train(loader, model, criterion, optimizer, epoch, iters, args, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -133,7 +131,7 @@ def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
         images = torch.cat([images_p, images_n])
         target = torch.cat([target_p, target_n])
         images, target = images.cuda(non_blocking=True), target.cuda(non_blocking=True)
-
+        print(i,target)
         # compute output
         output = model(images)
         loss = criterion(output, target)
@@ -167,6 +165,8 @@ def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
                 tb_logger.log_scalar(value, key, iter_count)
 
             tb_logger.flush()
+        if i >= iters:
+            break
         
 
 def test(loader, model, criterion, args, epoch=None, tb_logger=None):

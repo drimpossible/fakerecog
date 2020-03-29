@@ -3,8 +3,6 @@ import torch
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
-from albumentations import Compose, RandomCrop, Normalize, HorizontalFlip, Resize
-from albumentations.pytorch import ToTensor
 
 class SimpleFolderLoader(Dataset):
     def __init__(self, root, split, valfolders, transform=None, choose_class=False):
@@ -19,31 +17,24 @@ class SimpleFolderLoader(Dataset):
         train_list = ['dfdc_train_part_'+str(f) for f in range(50) if f not in valfolders]
         
         avoid_list = train_list if split=='val' else val_list
-        weights = []
 
         for k, v in data.items():
             if k.strip().split('/')[0] not in avoid_list:
                 if self.choose_class is not False:
                     if self.choose_class == 'REAL' and v['image_label'] == 'REAL':
                         image_paths.append(k)
-                        lb = 1 if v['image_label'] == 'FAKE' else 0
-                        w = 0.2 if v['image_label'] == 'FAKE' else 0.8
+                        lb = 0
                         labels.append(lb)
-                        weights.append(w)
+
                     if self.choose_class == 'FAKE' and v['image_label'] == 'FAKE':
                         image_paths.append(k)
-                        lb = 1 if v['image_label'] == 'FAKE' else 0
-                        w = 0.2 if v['image_label'] == 'FAKE' else 0.8
+                        lb = 1
                         labels.append(lb)
-                        weights.append(w)
                 else:
                     image_paths.append(k)
                     lb = 1 if v['image_label'] == 'FAKE' else 0
-                    w = 0.2 if v['image_label'] == 'FAKE' else 0.8
                     labels.append(lb)
-                    weights.append(w)
         
-        self.weights = torch.from_numpy(np.array(weights))
         self.labels = torch.from_numpy(np.array(labels))        
         self.image_paths = image_paths
         del data
