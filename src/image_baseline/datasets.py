@@ -7,11 +7,12 @@ from albumentations import Compose, RandomCrop, Normalize, HorizontalFlip, Resiz
 from albumentations.pytorch import ToTensor
 
 class SimpleFolderLoader(Dataset):
-    def __init__(self, root, split, valfolders, transform=None):
+    def __init__(self, root, split, valfolders, transform=None, choose_class=False):
         with open(root+'/processed_dataset.json','r') as f:
             data = json.load(f)
         assert(split in ['train','val'])
         self.root = root
+        self.choose_class = choose_class
         image_paths = []
         labels = []
         val_list = ['dfdc_train_part_'+str(f) for f in valfolders]
@@ -22,12 +23,25 @@ class SimpleFolderLoader(Dataset):
 
         for k, v in data.items():
             if k.strip().split('/')[0] not in avoid_list:
-                image_paths.append(k)
-                assert(v['image_label'] in ['REAL','FAKE'])
-                lb = 1 if v['image_label'] == 'FAKE' else 0
-                w = 0.2 if v['image_label'] == 'FAKE' else 0.8
-                labels.append(lb)
-                weights.append(w)
+                if self.choose_class is not False:
+                    if self.choose_class == 'REAL' and v['image_label'] == 'REAL':
+                        image_paths.append(k)
+                        lb = 1 if v['image_label'] == 'FAKE' else 0
+                        w = 0.2 if v['image_label'] == 'FAKE' else 0.8
+                        labels.append(lb)
+                        weights.append(w)
+                    if self.choose_class == 'FAKE' and v['image_label'] == 'FAKE':
+                        image_paths.append(k)
+                        lb = 1 if v['image_label'] == 'FAKE' else 0
+                        w = 0.2 if v['image_label'] == 'FAKE' else 0.8
+                        labels.append(lb)
+                        weights.append(w)
+                else:
+                    image_paths.append(k)
+                    lb = 1 if v['image_label'] == 'FAKE' else 0
+                    w = 0.2 if v['image_label'] == 'FAKE' else 0.8
+                    labels.append(lb)
+                    weights.append(w)
         
         self.weights = torch.from_numpy(np.array(weights))
         self.labels = torch.from_numpy(np.array(labels))        

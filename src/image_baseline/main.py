@@ -44,11 +44,16 @@ def main():
 
     train_transforms = Compose(train_extra+base_transforms)
     val_transforms = Compose(base_transforms)
-    train_dataset = datasets.SimpleFolderLoader(root=args.datadir, split='train', valfolders=valfolders, transform=train_transforms)
-    weights = train_dataset.weights
-    samp = WeightedRandomSampler(weights=weights, num_samples=750, replacement=False)
+    train_dataset_positive = datasets.SimpleFolderLoader(root=args.datadir, split='train', valfolders=valfolders,
+                                                         transform=train_transforms, choose_class='REAL')
+    train_dataset_negative = datasets.SimpleFolderLoader(root=args.datadir, split='train', valfolders=valfolders,
+                                                         transform=train_transforms, choose_class='FAKE')
+    # weights = train_dataset.weights
+    # samp = WeightedRandomSampler(weights=weights, num_samples=750, replacement=False)
     val_dataset = datasets.SimpleFolderLoader(root=args.datadir, split='val', valfolders=valfolders, transform=val_transforms)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
+    train_loader_pos = DataLoader(train_dataset_positive, batch_size=args.batch_size//2, shuffle=True, num_workers=args.workers, pin_memory=True)
+    train_loader_neg = DataLoader(train_dataset_negative, batch_size=args.batch_size//2, shuffle=True, num_workers=args.workers,
+                              pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
     print('==> Train and val loaders initialized..')
 
@@ -94,6 +99,7 @@ def main():
 
     for epoch in range(args.epochs):
         # train for one epoch and evaluate on validation set
+        train_loader = (train_loader_pos, train_loader_neg)
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
 
@@ -118,11 +124,13 @@ def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
     model.train()
     print("==> Starting pass number: "+str(epoch)+", Learning rate: " + str(optimizer.param_groups[-1]['lr']))
     end = time.time()
-    for i, (images, target) in enumerate(loader):
+    for i, (images_p, target_p), (images_n, target_n) in enumerate(zip(loader[0], loader[1])):
         # measure data loading time
         data_time.update(time.time() - end)
 
         #if args.gpu is not None:
+        images = torch.stack([images_p, images_n])
+        target = torch.stack([target_p, target_n])
         images, target = images.cuda(non_blocking=True), target.cuda(non_blocking=True)
 
         # compute output
