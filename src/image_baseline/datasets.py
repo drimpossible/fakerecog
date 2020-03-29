@@ -18,14 +18,18 @@ class SimpleFolderLoader(Dataset):
         train_list = ['dfdc_train_part_'+str(f) for f in range(50) if f not in valfolders]
         
         avoid_list = train_list if split=='val' else val_list
-        
+        weights = []
+
         for k, v in data.items():
             if k.strip().split('/')[0] not in avoid_list:
                 image_paths.append(k)
                 assert(v['image_label'] in ['REAL','FAKE'])
                 lb = 1 if v['image_label'] == 'FAKE' else 0
+                w = 0.2 if v['image_label'] == 'FAKE' else 0.8
                 labels.append(lb)
-
+                weights.append(w)
+        
+        self.weights = torch.from_numpy(np.array(weights))
         self.labels = torch.from_numpy(np.array(labels))        
         self.image_paths = image_paths
         del data

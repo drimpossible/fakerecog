@@ -7,14 +7,15 @@ from callbacks import Logger
 import torch
 from torch.utils.data import DataLoader
 from efficientnet_pytorch import EfficientNet
-from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normalize, HorizontalFlip, Resize, RandomBrightnessContrast, RandomGamma, CLAHE
+from albumentations import Compose, ISONoise, JpegCompression, Downscale, Normalize, HorizontalFlip, Resize, RandomBrightnessContrast, RandomGamma, MotionBlur
 from albumentations.pytorch import ToTensor
 from loss import FocalLoss
+from torch.utils.data.sampler import WeightedRandomSampler
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('-j', '--workers', default=16, type=int, help='number of data loading workers (default: 4)')
 parser.add_argument('--datadir', default='/bigssd/joanna/fakerecog/data/dfdc_bursted_final/', type=str, help='Location of the main json file')
-parser.add_argument('--epochs', default=62, type=int, help='number of total epochs to run')
+parser.add_argument('--epochs', default=30, type=int, help='number of total epochs to run')
 parser.add_argument('-b', '--batch-size', default=64, type=int, help='mini-batch size (default: 256)')
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, help='initial learning rate', dest='lr')
 parser.add_argument('-p', '--print-freq', default=200, type=int, help='print frequency (default: 10)')
@@ -23,7 +24,6 @@ parser.add_argument('--log_freq', '-l', default=500, type=int, help='frequency t
 parser.add_argument('--exp', type=str, default='test', help='experiment name')
 parser.add_argument('--temp', default=1, type=float, help='temperature')
 parser.add_argument('--lossfunc', default='crossentropy', choices=['crossentropy','focal'], type=str, help='Loss function to train with')
-
 
 def main():
     args = parser.parse_args()
@@ -39,21 +39,25 @@ def main():
     valfolders = [0]
 
     base_transforms = [Resize(224, 224), Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225],), ToTensor()]
-    #train_extra = [ISONoise(), RandomBrightnessContrast(), RandomGamma(), CLAHE(), HorizontalFlip(), JpegCompression(quality_lower=19, quality_upper=100, p=0.75), Downscale(scale_min=0.25, scale_max=0.99, p=0.5)]
-    train_extra = [HorizontalFlip()]
+    train_extra = [ISONoise(), RandomBrightnessContrast(), RandomGamma(), HorizontalFlip(), JpegCompression(quality_lower=19, quality_upper=100, p=0.75), Downscale(scale_min=0.25, scale_max=0.99, p=0.5), MotionBlur(blur_limit=9)]
+    #train_extra = [HorizontalFlip()]
 
     train_transforms = Compose(train_extra+base_transforms)
     val_transforms = Compose(base_transforms)
     train_dataset = datasets.SimpleFolderLoader(root=args.datadir, split='train', valfolders=valfolders, transform=train_transforms)
+    weights = train_dataset.weights
+    samp = WeightedRandomSampler(weights=weights, num_samples=750, replacement=False)
     val_dataset = datasets.SimpleFolderLoader(root=args.datadir, split='val', valfolders=valfolders, transform=val_transforms)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
     print('==> Train and val loaders initialized..')
 
     # Initialize loss function
-    weights = [.8, .2]
-    class_weights = torch.FloatTensor(weights).cuda()
-    criterion = torch.nn.CrossEntropyLoss(weight=class_weights).cuda()
+    
+    if args.lossfunc == 'focal':
+        criterion = FocalLoss().cuda()
+    else:
+        criterion = torch.nn.CrossEntropyLoss().cuda()
 
     # Import a pretrained model
     model = EfficientNet.from_pretrained('efficientnet-b5', num_classes=2)
@@ -74,7 +78,7 @@ def main():
     print('==> Training last layer..')
     # Train for one epoch and evaluate on validation set
     for epoch in range(6):
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch, iterations=750, args=args, tb_logger=tb_logger)
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
     acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
 
@@ -85,12 +89,12 @@ def main():
 
     # Reset optimizer
     optimizer = torch.optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999), eps=1e-8)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=2, T_mult=2, eta_min=1e-6)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=2, T_mult=2, eta_min=2e-6)
     torch.backends.cudnn.benchmark = True
 
     for epoch in range(args.epochs):
         # train for one epoch and evaluate on validation set
-        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, iterations=750, args=args, tb_logger=tb_logger)
+        train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch+1, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
 
     acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=epoch+1, tb_logger=tb_logger)
@@ -100,7 +104,7 @@ def main():
                 'optimizer' : optimizer.state_dict()}, filename)
 
 
-def train(loader, model, criterion, optimizer, epoch, args, iterations, tb_logger=None):
+def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -149,14 +153,11 @@ def train(loader, model, criterion, optimizer, epoch, args, iterations, tb_logge
             logs['Train_IterLoss'] = losses.val
             logs['Train_Acc@1'] = top1.val
             # how many iterations we have trained
-            iter_count = epoch * iterations + i
+            iter_count = epoch + i
             for key, value in logs.items():
                 tb_logger.log_scalar(value, key, iter_count)
 
             tb_logger.flush()
-        
-        if i >= iterations:
-            break 
         
 
 def test(loader, model, criterion, args, epoch=None, tb_logger=None):
