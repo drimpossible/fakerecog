@@ -83,6 +83,7 @@ def main():
     print('==> Training last layer..')
     # Train for one epoch and evaluate on validation set
     for epoch in range(6):
+        train_loader = (train_loader_pos, train_loader_neg)
         train(loader=train_loader, model=model, criterion=criterion, optimizer=optimizer, epoch=epoch, args=args, tb_logger=tb_logger)
         lr_scheduler.step()
     acc1, nll = test(loader=val_loader, model=model, criterion=criterion, args=args, epoch=0, tb_logger=tb_logger)
@@ -124,13 +125,13 @@ def train(loader, model, criterion, optimizer, epoch, args, tb_logger=None):
     model.train()
     print("==> Starting pass number: "+str(epoch)+", Learning rate: " + str(optimizer.param_groups[-1]['lr']))
     end = time.time()
-    for i, (images_p, target_p), (images_n, target_n) in enumerate(zip(loader[0], loader[1])):
+    for i, _input in enumerate(zip(loader[0], loader[1])):
         # measure data loading time
         data_time.update(time.time() - end)
-
+        (images_p, target_p), (images_n, target_n) = _input    
         #if args.gpu is not None:
-        images = torch.stack([images_p, images_n])
-        target = torch.stack([target_p, target_n])
+        images = torch.cat([images_p, images_n])
+        target = torch.cat([target_p, target_n])
         images, target = images.cuda(non_blocking=True), target.cuda(non_blocking=True)
 
         # compute output
